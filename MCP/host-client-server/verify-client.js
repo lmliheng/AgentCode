@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js'
+import { StreamableHTTPClientTransport} from '@modelcontextprotocol/sdk/client/streamableHttp'
 
 const serverPath = fileURLToPath(
 	new URL('./after-sales-mcp-server.js', import.meta.url)
@@ -28,6 +29,9 @@ const transport = new StdioClientTransport({
 	args: [serverPath],
 	stderr: 'inherit'
 })
+
+
+
 
 try {
 	// 连接server

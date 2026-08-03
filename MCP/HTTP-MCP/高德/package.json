@@ -1,0 +1,17 @@
+{
+  "name": "amap",
+  "version": "1.0.0",
+  "description": "高德MCP调用",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "deepseek-client.js",
+  "scripts": {
+    "host": "node --env-file=.env host",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  }
+}
