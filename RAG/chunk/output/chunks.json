@@ -1,0 +1,58 @@
+[
+  {
+    "chunkId": "refund-policy:2026-06-15:001:e5aab452f79f",
+    "content": "# 蓝鲸退款规则\n\n普通商品签收后 7 天内可以申请退款。\n\n生鲜商品不支持无理由退款。\n\n退款金额超过 3000 元时，需要进入人工审核流程。\n\n用户提交退款申请后，系统会先校验订单状态、签收时间和商品类型。",
+    "metadata": {
+      "source": "refund-policy.md",
+      "title": "蓝鲸退款规则",
+      "category": "refund",
+      "owner": "customer-service",
+      "sourceVersion": "2026-06-15",
+      "chunkIndex": 1,
+      "contentHash": "e5aab452f79f",
+      "chunkLength": 105
+    }
+  },
+  {
+    "chunkId": "refund-policy:2026-06-15:002:0bd72682472f",
+    "content": "人工审核流程。\n\n用户提交退款申请后，系统会先校验订单状态、签收时间和商品类型。\n\n如果订单命中人工审核规则，退款申请会进入客服审核队列。 客服审核通过后，系统再进入退款打款流程。",
+    "metadata": {
+      "source": "refund-policy.md",
+      "title": "蓝鲸退款规则",
+      "category": "refund",
+      "owner": "customer-service",
+      "sourceVersion": "2026-06-15",
+      "chunkIndex": 2,
+      "contentHash": "0bd72682472f",
+      "chunkLength": 90
+    }
+  },
+  {
+    "chunkId": "shipping-policy:2026-06-01:001:e82e69d63752",
+    "content": "# 商品发货规则\n\n现货商品会在付款后 48 小时内发货。\n\n偏远地区可能增加 1 到 3 天配送时间。\n\n如果订单中包含预售商品，整单会按照预售商品的发货时间处理。",
+    "metadata": {
+      "source": "shipping-policy.md",
+      "title": "商品发货规则",
+      "category": "shipping",
+      "owner": "fulfillment",
+      "sourceVersion": "2026-06-01",
+      "chunkIndex": 1,
+      "contentHash": "e82e69d63752",
+      "chunkLength": 83
+    }
+  },
+  {
+    "chunkId": "shipping-policy:2026-06-01:002:f8f80bcd3429",
+    "content": "3 天配送时间。\n\n如果订单中包含预售商品，整单会按照预售商品的发货时间处理。\n\n用户可以在订单详情页查看物流单号。 物流信息通常会在发货后 24 小时内更新。",
+    "metadata": {
+      "source": "shipping-policy.md",
+      "title": "商品发货规则",
+      "category": "shipping",
+      "owner": "fulfillment",
+      "sourceVersion": "2026-06-01",
+      "chunkIndex": 2,
+      "contentHash": "f8f80bcd3429",
+      "chunkLength": 80
+    }
+  }
+]

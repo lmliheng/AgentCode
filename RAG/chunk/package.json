@@ -1,0 +1,12 @@
+{
+  "name": "chunk",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "build-chunks.js",
+  "scripts": {
+    "test": "node build-chunks.js"
+  }
+}
