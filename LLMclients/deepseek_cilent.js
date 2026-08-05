@@ -1,20 +1,9 @@
 
-const API_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/chat/completions'
-const MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash'
-
-/**
- * 
- * 调用 DeepSeek 模型:
- * messages：
- * 当前对话消息，包括用户问题、模型消息和工具执行结果。
- *
- * 返回：
- * - message：模型本轮返回的完整消息
- * - finishReason：本轮停止原因
- * - latencyMs：本次接口调用耗时
- * - usage：Token 使用统计
- */
 async function callDeepSeek(messages) {
+
+    const API_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/chat/completions'
+    const MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash'
+
     // 调用模型前先检查 API Key，避免发送无效请求。
     if (!process.env.DEEPSEEK_API_KEY) {
         throw new Error('缺少 DEEPSEEK_API_KEY，请先在 .env 中完成配置。')

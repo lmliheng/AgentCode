@@ -11,5 +11,6 @@ export function messageCreate(message, role) {
  * @多轮对话message增加
  */
 export function messageAdd(messageObject, message, role) {
-    return messageObject.push({ "role": `${role}`, "content": `${message}` })
+    messageObject.push({ "role": `${role}`, "content": `${message}` })
+    return messageObject
 }

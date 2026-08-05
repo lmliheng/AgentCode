@@ -1,0 +1,13 @@
+{
+  "name": "rag",
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "liheng",
+  "type": "module",
+  "main": "embeddingZ.js",
+  "scripts": {
+    "embedding": "node --env-file=.env 向量模型/embedding_test.js",
+    "vectorRetriever": "node --env-file=.env 向量检索器/VectorRetriever.js"
+  }
+}
