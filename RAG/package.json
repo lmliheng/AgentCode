@@ -7,6 +7,8 @@
   "type": "module",
   "main": "embeddingZ.js",
   "scripts": {
+
+    "ask":"node --env-file=.env 提问优化器/query.js --test",
     "embedding": "node --env-file=.env 向量模型/embedding_test.js",
     "vectorRetriever": "node --env-file=.env 向量检索器/VectorRetriever.js"
   }
