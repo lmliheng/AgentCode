@@ -1,0 +1,15 @@
+{
+  "name": "node",
+  "version": "1.0.0",
+  "description": "",
+  "main": "node_path_fs.js",
+  "scripts": {
+    "fs":"node fs.js",
+    "path":"node path.js --test",
+    "process": "node --env-file=.env process.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module"
+}

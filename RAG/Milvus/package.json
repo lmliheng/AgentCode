@@ -4,6 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "dev":"node --env-file=.env index.js",
     "collection":"node --env-file=.env milvus/collection.js",
     "database":"node --env-file=.env milvus/database.js",
     "connect": "node --env-file=.env milvus/connect.js"
