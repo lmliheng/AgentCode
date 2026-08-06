@@ -1,7 +1,5 @@
 import * as path from 'path'
 
-
-
 /**
  * @EM里的__dirname和filename获取
  */
