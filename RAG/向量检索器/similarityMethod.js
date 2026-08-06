@@ -1,5 +1,13 @@
 /**
  * @向量相似度计算
+ * 
+ * 1. 余弦相似度
+ * 2. 欧氏距离
+ * 3. 内积
+ * 4. 汉明距离 
+ * 5. 雅卡德
+ * 
+ * 
  */
 
 
@@ -20,7 +28,7 @@ export function cosSimlarity(v1, v2) {
         secondLength += v2[i] ** 2
     }
 
-    if (firstLength === 0 && secondLength === 0) {
+    if (firstLength === 0 || secondLength === 0) {
         throw new Error('不能计算零向量的余弦相似度')
     }
     return dotProduct / ((Math.sqrt(firstLength) * Math.sqrt(secondLength)))

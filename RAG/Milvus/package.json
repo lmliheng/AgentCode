@@ -1,0 +1,18 @@
+{
+  "name": "milvus SDK",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "collection":"node --env-file=.env milvus/collection.js",
+    "database":"node --env-file=.env milvus/database.js",
+    "connect": "node --env-file=.env milvus/connect.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@zilliz/milvus2-sdk-node": "^3.0.4"
+  }
+}

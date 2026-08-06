@@ -76,7 +76,7 @@ async function createSimilarity(question) {
     return similarPercent.map((item, index) => cosSimlarity(q_v, vectorDocument[index].vector))
 }
 //  console.log(vectorDocument)
-let question = '这个包售后吗 时限是多久，维修范围是哪些，是以旧换新还是维修'
+let question = '我买的咖啡机 3000 元，现在想退货。这个订单需要人工审核吗？如果要退，具体流程怎么走？'
 // '我买的咖啡机 3000 元，现在想退货。这个订单需要人工审核吗？如果要退，具体流程怎么走？'
 // '我去年的3千块的券现在能用吗'
 // '这个包售后吗 时限是多久，维修范围是哪些，是以旧换新还是维修'
