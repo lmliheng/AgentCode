@@ -1,3 +1,7 @@
+/**
+ * @这里实现了host和client
+ * server由高德 MCP server提供，使用streamableHTTP
+ */
 
 import { callDeepSeek } from './deepseek-client.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
