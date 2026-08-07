@@ -191,7 +191,7 @@ async function searchQuestion(client, question, filter) {
         data: [query],
 
         // 返回最相似的前 3 条。
-        limit: 3,
+        limit: 4,
 
         // Metadata Filter，例如：category == "refund"。
         filter,
@@ -215,8 +215,8 @@ async function searchQuestion(client, question, filter) {
 
 
 if (process.argv[2] === '--search') {
-    let question = '两年前买的机子还包售后吗'
+    let question = '两年前买的机子还包售后吗,需要审核吗'
     //'3000 元退款需要人工审核吗？'
-    let searchResult = await searchQuestion(client, question, 'category == "refund"')
-    console.log(searchResult)
+    let searchResult = await searchQuestion(client, question,'')
+    console.table(searchResult)
 }
