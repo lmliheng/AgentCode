@@ -4,9 +4,7 @@
   "description": "",
   "main": "node_path_fs.js",
   "scripts": {
-    "fs":"node fs.js",
-    "path":"node path.js --test",
-    "process": "node --env-file=.env process.js"
+    
   },
   "keywords": [],
   "author": "",
