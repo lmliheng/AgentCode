@@ -7,6 +7,7 @@
   "type": "module",
   "main": "embeddingZ.js",
   "scripts": {
+    
     "rerank": "node --env-file=.env reRank/rerank.js --test",
     "ask": "node --env-file=.env 提问优化器/query.js --test",
     "embedding": "node --env-file=.env 向量模型/embedding_test.js",

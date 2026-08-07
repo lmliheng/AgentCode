@@ -213,10 +213,10 @@ async function searchQuestion(client, question, filter) {
     return result.results
 }
 
-
+import { question } from '../向量检索器/VectorRetriever.js';
 if (process.argv[2] === '--search') {
-    let question = '两年前买的机子还包售后吗,需要审核吗'
     //'3000 元退款需要人工审核吗？'
-    let searchResult = await searchQuestion(client, question,'')
-    console.table(searchResult)
+    // 
+    let searchResult = await searchQuestion(client, question, '')
+    console.log(searchResult)
 }
