@@ -1,3 +1,7 @@
+#!/usr/bin/env node
+
+//ESM 模块的 shebang 也是这么写，Node 会识别
+
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';

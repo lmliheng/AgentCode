@@ -1,8 +1,20 @@
 {
-  "name": "filesystem",
-  "version": "1.0.0",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "name": "@lmliheng/filesystem",
+  "version": "1.0.3",
   "description": "",
-  "main": "index.js",
+  "main": "index.mjs",
+  "bin": {
+    "filesystem": "index.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "src/",
+    "node/"
+  ],
   "scripts": {
     "test": "node --test",
     "mcp": "node index.mjs",
