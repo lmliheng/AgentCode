@@ -1,0 +1,2 @@
+模型创建执行计划，采用计划清单，每次执行actions会replan更新计划。
+这里和toolcalling一样写好了Tools和返回结果，都是模拟场景

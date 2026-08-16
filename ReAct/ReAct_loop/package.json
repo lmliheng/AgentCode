@@ -1,0 +1,16 @@
+{
+  "name": "react_loop",
+  "version": "1.0.0",
+  "description": "",
+  "main": "scenarios.js",
+  "scripts": {
+    "main": "node --env-file=.env main.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "zod": "^4.4.3"
+  }
+}

@@ -1,13 +1,13 @@
 {
   "name": "llmclients",
   "version": "1.0.0",
-  "description": "",
+  "description": "LLMclients调用Npm仓库",
   "license": "ISC",
-  "author": "",
+  "author": "lmliheng",
   "type": "module",
   "main": "chat",
   "scripts": {
-    "chat":"node --env-file=.env chat.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "chat":"node --env-file=.env chat.js chat",
+    "balance": "node --env-file=.env chat.js balance"
   }
 }
