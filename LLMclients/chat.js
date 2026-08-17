@@ -20,7 +20,9 @@ if (process.argv[2] === 'chat') {
             } else {
                 message = messageAdd(message, answer, 'user')
             }
-            let res = await callDeepSeek(message)
+            let res = await callDeepSeek(message,{
+                temperature:0.9
+            })
             console.log(res.message.content)
             // console.log(message)
             message = messageAdd(message, res.message.content, 'assistant')

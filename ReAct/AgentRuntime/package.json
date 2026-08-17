@@ -1,0 +1,17 @@
+{
+	"name": "04-agent-runtime",
+	"version": "1.0.0",
+	"private": true,
+	"description": "使用原生 Node.js 演示 Agent Run State、执行预算和终止条件",
+	"scripts": {
+		"demo": "node demo.js",
+		"demo:complete": "node demo.js complete",
+		"demo:repeat": "node demo.js repeat",
+		"demo:no-progress": "node demo.js no-progress",
+		"demo:budget": "node demo.js budget",
+		"check": "node --check demo.js && node --check agent-runtime.js && node --check runtime-state.js && node --check scripted-decision-provider.js && node --check incident-data.js && node --check incident-tools.js"
+	},
+	"engines": {
+		"node": ">=20.19.0"
+	}
+}

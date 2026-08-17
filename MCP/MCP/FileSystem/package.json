@@ -3,8 +3,9 @@
     "registry": "https://registry.npmjs.org/",
     "access": "public"
   },
-  "name": "@lmliheng/filesystem",
-  "version": "1.0.3",
+
+  "name": "@lmliheng/filesystem-mcp",
+  "version": "1.0.0",
   "description": "",
   "main": "index.mjs",
   "bin": {

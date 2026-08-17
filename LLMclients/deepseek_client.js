@@ -1,7 +1,9 @@
 /**
  * @ds的Toolcalling调用 
+ * 有了option这种写法 这个函数可以和callDs函数合并了
+ * 但为了稳定性，不产生破环性影响，先保留使用
  */
-export async function callDeepSeek_Toolcalling(messages, tools) {
+export async function callDeepSeek_Toolcalling(messages, tools, options={}) {
     const API_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/chat/completions'
     const MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash'
 
@@ -28,8 +30,7 @@ export async function callDeepSeek_Toolcalling(messages, tools) {
             thinking: {
                 type: 'enabled'
             },
-            // 使用较低温度，减少工具选择和参数生成的随机性。
-            temperature: 0.1
+            ...options
         })
     })
 
@@ -64,10 +65,11 @@ export async function callDeepSeek_Toolcalling(messages, tools) {
     }
 }
 
+
 /**
  * @ds单多轮对话调用
  */
-export async function callDeepSeek(messages) {
+export async function callDeepSeek(messages,options={}) {
     const API_URL = process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com/chat/completions'
     const MODEL = process.env.DEEPSEEK_MODEL || 'deepseek-v4-flash'
     // 调用模型前先检查 API Key，避免发送无效请求。
@@ -84,9 +86,7 @@ export async function callDeepSeek(messages) {
         body: JSON.stringify({
             model: MODEL,
             messages,
-            thinking: {
-                type: 'enabled'
-            },
+            ...options,
         })
     })
 
@@ -144,3 +144,5 @@ export async function getDeepseekBalance() {
         console.error('请求失败:', error.message)
     }
 }
+
+

@@ -20,6 +20,7 @@
   },
   "homepage": "https://github.com/lmliheng/AgentCode#readme",
   "dependencies": {
-    "@lmliheng/ai_git": "^1.0.5"
+    "@lmliheng/ai_git": "^1.0.5",
+    "@lmliheng/filesystem": "^1.0.4"
   }
 }
