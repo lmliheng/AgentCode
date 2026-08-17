@@ -4,8 +4,7 @@
   "description": "基于 **DeepSeek 大模型 + MCP（Model Context Protocol）** 的学习与实践项目。目标是把「模型调用外部工具」的完整链路跑通：从本地 stdio 传输的 MCP Server / Host，到基于 StreamableHTTP 的远程 MCP（高德地图），并封装了 DeepSeek API 客户端与 Tool Calling 循环。",
   "main": "index.js",
   "scripts": {
-    "comsume": "node --env-file=.env scripts/ai_git.js comsume",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "comsume": "node --env-file=.env scripts/ai_git.js comsume"
   },
   "repository": {
     "type": "git",
@@ -20,7 +19,6 @@
   },
   "homepage": "https://github.com/lmliheng/AgentCode#readme",
   "dependencies": {
-    "@lmliheng/ai_git": "^1.0.5",
-    "@lmliheng/filesystem": "^1.0.4"
+    "@lmliheng/ai_git": "^1.0.7"
   }
 }
