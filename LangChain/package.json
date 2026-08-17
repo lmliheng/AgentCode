@@ -4,6 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
+    "generate": "node --env-file=.env LangChain/SDK/langchain_deepseek.js --generate",
+    "chat": "node --env-file=.env LangChain/SDK/langchain_deepseek.js --chat",
     "test": "node --env-file=.env LangChain/langchain.js"
   },
   "keywords": [],
