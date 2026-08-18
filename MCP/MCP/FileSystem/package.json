@@ -3,32 +3,46 @@
     "registry": "https://registry.npmjs.org/",
     "access": "public"
   },
-
   "name": "@lmliheng/filesystem-mcp",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.mjs",
+  "version": "1.0.7",
+  "description": "文件系统MCP",
+  "keywords": [
+    "mcp",
+    "filesystem",
+    "agent"
+  ],
+  "author": "lmliheng",
+  "license": "MIT",
+  "main": "dist/fs_map.mjs",
+  "exports": {
+    ".": {
+      "import": "./dist/fs_mcp.mjs"
+    }
+  },
   "bin": {
     "filesystem": "index.mjs"
   },
   "files": [
     "index.mjs",
     "src/",
-    "node/"
+    "dist/",
+    "README.md",
+    "test/",
+    "rollup.config.js"
   ],
   "scripts": {
     "test": "node --test",
-    "mcp": "node index.mjs",
+    "mcp": "node index.mjs --server",
     "disk": "node src/Disk/disk.js",
-    "fs": "node node/fs.js",
-    "path": "node node/path.js --test",
-    "process": "node --env-file=.env node/process.js"
+    "build": "rollup -c",
+    "p": "npm publish --registry=https://registry.npmjs.org/"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
   "type": "module",
   "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0"
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "rollup": "^4.62.4"
   }
 }

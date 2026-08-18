@@ -1,12 +1,75 @@
 #!/usr/bin/env node
-
-//ESM 模块的 shebang 也是这么写，Node 会识别
-
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { dirRead } from './src/Dir/dir.js';
-import { disk_name } from './src/Disk/disk.js';
+import { readdir, stat } from 'fs/promises';
+import path from 'path';
+import 'console';
+import { execSync } from 'child_process';
+
+/**
+ * @size换算
+ */
+function formatSize(bytes) {
+    if (bytes === 0) return '0 B'
+    const units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    const k = 1024;
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + units[i]
+}
+
+
+/**
+ * @判断文件是二进制文件还是文本文件
+ */
+
+/**
+ * @列出目录下目录名和文件名
+ */
+async function dirRead(dirPath) {
+    let res = [];
+    let items = await readdir(dirPath);
+    for (const item of items) {
+        try {
+            let item_path = path.join(dirPath, item);
+            let item_stat = await stat(item_path);
+            if (item_stat.isFile()) {
+                res.push({
+                    name: item,
+                    size: formatSize(item_stat.size),
+                    type: 'file'
+                });
+            } else if (item_stat.isDirectory()) {
+                res.push({
+                    name: item,
+                    size: formatSize(item_stat.size),
+                    type: 'dir'
+                });
+            }
+        } catch (error) {
+            // 跳过无法读取的文件（如系统临时文件）
+            console.warn(`跳过文件 ${item}: ${error.message}`);
+            continue
+        }
+        
+    }
+    return res
+}
+
+/**
+ * @列出磁盘名称数组
+ * 使用windows命令获取到结果
+ */
+function disk_name() {
+    const result = execSync('wmic logicaldisk get caption').toString();
+    const drives = result.trim()
+        .split('\n')
+        .slice(1)
+        .filter(Boolean)
+        .map(d => d.trim())
+        .filter(d => !['A:', 'B:'].includes(d));
+    return drives
+}
 
 if (process.argv[2] === '--server') {
   const server = new McpServer({
@@ -78,7 +141,8 @@ if (process.argv[2] === '--server') {
   await server.connect(transport);
   console.error('MCP stdio server up');
 }
-export default {
+var index = {
   dirRead, disk_name
-}
+};
 
+export { index as default };

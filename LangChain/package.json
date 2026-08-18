@@ -6,6 +6,8 @@
   "scripts": {
     "generate": "node --env-file=.env LangChain/SDK/langchain_deepseek.js --generate",
     "chat": "node --env-file=.env LangChain/SDK/langchain_deepseek.js --chat",
+    "message": "node --env-file=.env LangChain/SDK/langchain_deepseek.js --message",
+    "tool":"node --env-file=.env LangChain/SDK/langchain_deepseek.js --tool",
     "test": "node --env-file=.env LangChain/langchain.js"
   },
   "keywords": [],
@@ -15,6 +17,7 @@
   "dependencies": {
     "@langchain/core": "^1.2.8",
     "@langchain/deepseek": "^1.1.8",
+    "@lmliheng/filesystem-mcp": "^1.0.7",
     "langchain": "^1.5.9",
     "zod": "^4.4.3"
   }
