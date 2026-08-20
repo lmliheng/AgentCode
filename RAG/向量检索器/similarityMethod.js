@@ -33,3 +33,6 @@ export function cosSimlarity(v1, v2) {
     }
     return dotProduct / ((Math.sqrt(firstLength) * Math.sqrt(secondLength)))
 }
+
+
+

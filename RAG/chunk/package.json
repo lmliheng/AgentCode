@@ -1,12 +1,36 @@
 {
-  "name": "chunk",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "name": "@lmliheng/rag-chunk",
   "version": "1.0.0",
-  "description": "",
-  "license": "ISC",
-  "author": "",
-  "type": "module",
-  "main": "build-chunks.js",
+  "description": "RAG资料读取,解析,分块，存储",
+  "keywords": [
+    "rag",
+    "chunk"
+  ],
+  "author": "lmliheng",
+  "license": "MIT",
+  "main": "main.js",
+  "exports": {
+    ".": {
+      "import": "./dist/rag.mjs"
+    }
+  },
   "scripts": {
-    "test": "node build-chunks.js"
+    "parse": "node build-chunks.js --parse",
+    "test": "node build-chunks.js",
+    "md": "node index.js --md",
+    "pdf": "node index.js --pdf",
+    "build": "rollup -c",
+    "p": "npm publish --registry=https://registry.npmjs.org/"
+  },
+  "type": "module",
+  "devDependencies": {
+    "rollup": "^4.62.4"
+  },
+  "dependencies": {
+    "pdf-parse": "^2.4.5"
   }
 }

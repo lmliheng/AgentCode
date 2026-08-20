@@ -11,11 +11,9 @@ const outputDir = path.join(process.cwd(), 'output')
 
 // 最终生成的 Chunk 数据文件。
 const outputFile = path.join(outputDir, 'chunks.json')
-
 // 每个 Chunk 的最大长度，默认 120 个字符。
 // 真实项目中一般会按 Token 数量控制，这里为了演示，先按字符数控制。
 const chunkMaxLength = 120
-
 // Chunk 之间的重叠长度，默认 40 个字符。
 // overlap 可以减少上下文被切断的问题。
 const chunkOverlapLength = 40
@@ -162,7 +160,6 @@ function takeOverlap(text) {
 	if (chunkOverlapLength <= 0) {
 		return ''
 	}
-
 	return text.slice(-chunkOverlapLength).trim()
 }
 
@@ -198,10 +195,8 @@ function toChunkId({ fileName, sourceVersion, chunkIndex, content }) {
  */
 function createChunks(document) {
 	const paragraphs = splitIntoParagraphs(document.text)
-
 	const chunks = []
 	let current = []
-
 	for (const paragraph of paragraphs) {
 		// 尝试把当前段落加入正在构建的 Chunk。
 		const nextText = [...current, paragraph].join('\n\n')
@@ -264,6 +259,7 @@ function createChunks(document) {
  * 这里只处理 .md 文件，并且按照文件名排序，
  * 这样每次运行时的处理顺序更稳定。
  */
+
 async function loadMarkdownDocuments() {
 	const entries = await readdir(documentDir, { withFileTypes: true })
 
@@ -284,6 +280,50 @@ async function loadMarkdownDocuments() {
 	}
 
 	return documents
+}
+
+/**
+ * @合法的windows绝对路径
+ */
+function isWindowsPath(path) {
+	return /^[A-Za-z]:\\.+$/.test(path);
+}
+
+/**
+ * 
+ * @param {*} source_path md文件的绝对路径
+ * @param {*} target_path json文件的绝对路径
+ * @param {*} options 
+ */
+export async function markdown_chunk(
+	source_path,
+	target_path,
+	// 不能更改
+	options = {
+		chunkMaxLength: 120,
+		chunkOverlapLength: 40// overlap 可以减少上下文被切断的问题。
+	}) {
+	//先检查targat_path的json文件是否合法
+	if (!(isWindowsPath(source_path) && isWindowsPath(target_path))) {
+		throw new Error("文件路径不合法")
+	}
+	try {
+
+		let document = await readFile(source_path, 'utf8')
+
+		let parse = parseMarkdown({
+			fileName: path.basename(source_path),
+			rawText: document
+		})
+
+		let chunk = createChunks(parse)
+		let chunks = await readFile(target_path, 'utf8')
+		let chunks_json = JSON.parse(chunks)
+		chunks_json.push(...chunk)
+		await writeFile(target_path, JSON.stringify(chunks_json, null, 2))
+	} catch (e) {
+		console.log(e)
+	}
 }
 
 async function main() {
@@ -328,4 +368,23 @@ async function main() {
 	)
 }
 
-main()
+
+if (process.argv[2] === '--parse') {
+	let rawText = await readFile(path.join(import.meta.dirname, 'documents/shipping-policy.md'), 'utf8')
+	let parseRes = await parseMarkdown({ fileName: 'shipping-policy.md', rawText })
+	let chunk = await createChunks(parseRes)
+	console.log(parseRes)
+	console.log(chunk)
+}
+
+if (process.argv[2] === '--chunk') {
+	main()
+}
+
+if (process.argv[2] === '--md') {
+	await markdown_chunk(
+		path.join(import.meta.dirname, 'documents/FileSystemMCP-design.md'),
+		path.join(import.meta.dirname, 'output/chunks.json')
+	)
+}
+
