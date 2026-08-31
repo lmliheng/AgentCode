@@ -27,18 +27,14 @@ import { createDevelopNode } from "./nodes/develop.js";
 import { feedbackNode } from "./nodes/feedback.js";
 import { createFsTools } from "./tools/fs_tools.js";
 
+
 /** 模型实例（全面 LangChain 化，决策 2/18：全程 thinking） */
 export function createModel() {
   const options = {
-    model: process.env.DEEPSEEK_MODEL || "deepseek-v4-flash",
-    // 决策 18：全程开启 DeepSeek thinking
-    // ChatDeepSeek 不支持显式 thinking 构造参数，通过 modelKwargs 透传到请求体
+    model: "deepseek-v4-flash",
+    // 决策 18：开启 DeepSeek thinking,提高完成任务的质量
     modelKwargs: { thinking: { type: "enabled" } },
   };
-  if (process.env.DEEPSEEK_BASE_URL) {
-    // OpenAI 兼容客户端用 configuration.baseURL 指定自定义 API 地址
-    options.configuration = { baseURL: process.env.DEEPSEEK_BASE_URL };
-  }
   return new ChatDeepSeek(options);
 }
 
@@ -77,7 +73,6 @@ export function buildGraph({ workdir }) {
 
     .addEdge(START, "collect_doc")
     .addEdge("collect_doc", "doc_understand")
-
     // 可行性门：严重问题 → 暂停询问；否则进遗漏分析
     .addConditionalEdges(
       "doc_understand",
@@ -96,12 +91,14 @@ export function buildGraph({ workdir }) {
     // 遗漏分析循环：有遗漏且未达轮数上限 → 逐个问；否则进 Plan
     // 注意用 <=：第 3 轮（missing_round=3）发现的遗漏也要问完，
     // 第 4 轮 missing_round=4 才进 Plan（即最多询问 3 轮）
+
     .addConditionalEdges(
       "missing_analysis",
       (s) =>
         s.missing_points.length > 0 && s.missing_round <= MAX_MISSING_ROUNDS
           ? "ask_missing"
           : "plan_tasks",
+
       { ask_missing: "ask_missing", plan_tasks: "plan_tasks" }
     )
     .addEdge("ask_missing", "missing_analysis")

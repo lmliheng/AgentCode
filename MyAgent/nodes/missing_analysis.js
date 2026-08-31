@@ -32,7 +32,7 @@ export const missingAnalysisSchema = z.object({
 });
 
 /** 遗漏分析最大轮数（决策 6） */
-export const MAX_MISSING_ROUNDS = 3;
+export const MAX_MISSING_ROUNDS = 10;
 
 const SYSTEM_PROMPT = `你是一名需求分析师。给定项目文档、初步分析结果和用户已确认的设计决策，找出文档中仍然缺失、需要用户拍板的设计点。
 
@@ -110,6 +110,8 @@ export function createMissingAnalysisNode(model) {
     return { missing_points: res.missing_points, missing_round: 1 };
   };
 }
+
+
 
 /**
  * ask_missing 节点：逐个 interrupt 询问用户（幂等，无 LLM 调用）

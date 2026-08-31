@@ -26,6 +26,8 @@ export const C = {
 /** 是否开启调试（index.js 传 --debug） */
 export const DEBUG = process.argv.includes("--debug");
 
+
+
 /**
  * 把 State 更新/快照压缩成一行可读文本
  * 数组显示长度，对象显示键列表，长字符串截断
@@ -49,6 +51,8 @@ export function summarize(obj) {
   return parts.length ? parts.join("  ") : "(无更新)";
 }
 
+
+
 /** 打印一个节点执行后的 State 增量（stream updates chunk） */
 export function printUpdate(chunk) {
   for (const [nodeName, update] of Object.entries(chunk)) {
@@ -59,6 +63,8 @@ export function printUpdate(chunk) {
   }
 }
 
+
+
 /** 打印 interrupt 暂停点 */
 export function printInterrupt(interrupts) {
   for (const it of interrupts) {
@@ -68,6 +74,8 @@ export function printInterrupt(interrupts) {
     if (v.module) console.log(`   模块：${v.module}`);
   }
 }
+
+
 
 /**
  * 方案 A：用 stream("updates") 运行图，实时打印 State 变化

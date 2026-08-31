@@ -11,16 +11,21 @@
  * - CLI 层负责展示 + 收集用户输入 + 作为 resume 值送回
  * - 节点从 interrupt() 处拿到 resume 值继续执行
  */
+
+
 import readline from "node:readline/promises";
 
 /**
  * 创建 CLI 交互层
  */
 export function createInterruptUI() {
+
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
   });
+
+
 
   /**
    * 处理一次返回的 interrupt 列表，逐个收集用户输入
@@ -35,6 +40,8 @@ export function createInterruptUI() {
     }
     return values;
   }
+
+
 
   /** 按 kind 分发到对应的交互流程 */
   async function promptFor(payload) {
@@ -51,6 +58,9 @@ export function createInterruptUI() {
         return rl.question(">>> ");
     }
   }
+
+
+
 
   /** 粘贴项目文档：连续读取多行，空行结束 */
   async function promptDoc() {
@@ -70,6 +80,10 @@ export function createInterruptUI() {
     }
     return lines.join("\n");
   }
+
+
+
+
 
   /** 可行性门：展示严重问题，用户选 继续 / 补充文档 / 终止 */
   async function promptFeasibility(payload) {
@@ -91,6 +105,8 @@ export function createInterruptUI() {
     }
   }
 
+
+
   /** 遗漏点确认：展示问题与选项（含自定义），编号或直接输入自定义方案 */
   async function promptMissing(payload) {
     console.log("\n────────────────────────");
@@ -108,6 +124,8 @@ export function createInterruptUI() {
       console.log("  输入不能为空");
     }
   }
+
+
 
   /** 反馈确认：展示任务结果，Y / 修改(输入意见) / 终止 */
   async function promptFeedback(payload) {
@@ -142,6 +160,9 @@ export function createInterruptUI() {
       console.log("  请输入 Y / M / T");
     }
   }
+
+
+
 
   return { handleInterrupts, rl };
 }

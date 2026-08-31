@@ -13,11 +13,11 @@
  */
 import { Command } from "@langchain/langgraph";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
 import { buildGraph } from "./graph.js";
 import { createInterruptUI } from "./cli/interrupt_ui.js";
 import { saveMemory, loadMemory, pickMemory } from "./memory.js";
 import { DEBUG, runGraphWithStream, printStateHistory } from "./debug.js";
+
 import readline from "node:readline/promises";
 
 const THREAD_ID = "coding-agent-1";
@@ -70,6 +70,7 @@ async function main() {
   if (DEBUG) {
     result = await runGraphWithStream(graph, ui, config, initial);
   } else {
+
     result = await graph.invoke(initial, config);
     // interrupt 循环：展示 → 收集 → 恢复
     while (result.__interrupt__) {
@@ -78,6 +79,8 @@ async function main() {
       const resume = values.length === 1 ? values[0] : values;
       result = await graph.invoke(new Command({ resume }), config);
     }
+
+
   }
 
   // 5. 调试模式：打印完整 State 历史快照（方案 B）
