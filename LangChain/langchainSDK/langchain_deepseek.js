@@ -1,9 +1,9 @@
 import { ChatDeepSeek } from "@langchain/deepseek"
-import { messageAdd, messageCreate } from '../../../LLMclients/message_tools.js'
+import { messageAdd, messageCreate } from '../../LLMclients/message_tools.js'
 import { HumanMessage, AIMessage, SystemMessage, tool, ToolMessage } from "langchain"
 import fs_mcp from '@lmliheng/filesystem-mcp'
 import * as readline from 'readline'
-import z from "zod"
+import z from 'zod'
 
 /**
  * @LLM对象

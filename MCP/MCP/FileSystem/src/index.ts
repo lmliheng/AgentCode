@@ -14,11 +14,13 @@ if (process.argv[2] === '--server') {
 
   server.registerTool(
     'list_disks',
+
     {
       title:'获取磁盘列表',
       description: '获取系统所有磁盘驱动器列表（排除A/B盘）',
       inputSchema: z.object({}),  // 使用 Zod schema
     },
+
     async () => {
       try {
         const disks = disk_name();
@@ -80,7 +82,6 @@ if (process.argv[2] === '--server') {
 
   console.error('MCP stdio server up');
 }
-
 
 export default {
   dirRead, disk_name
