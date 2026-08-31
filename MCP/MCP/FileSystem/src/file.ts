@@ -1,8 +1,10 @@
+import path from "node:path"
+
 
 /**
  * @size换算
  */
-export function formatSize(bytes) {
+export function formatSize(bytes: number) {
     if (bytes === 0) return '0 B'
     const units = ['B', 'KB', 'MB', 'GB', 'TB']
     const k = 1024
@@ -13,20 +15,10 @@ export function formatSize(bytes) {
 
 /**
  * @获取文件信息
- * name
- * 大小
+ * name,size...
  */
-export function FileInfo(path) {
-    let name
-    let size
-    let CreateTime
-    let EditTime
-    return {
-        name,
-        size,
-        CreateTime,
-        EditTime
-    }
+export function FileInfo() {
+
 }
 
 

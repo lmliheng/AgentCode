@@ -1,21 +1,21 @@
-#!/usr/bin/env node
-
-//ESM 模块的 shebang 也是这么写，Node 会识别
-
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { dirRead } from './src/Dir/dir.js';
-import { disk_name } from './src/Disk/disk.js';
+import { dirRead } from './dir.js';
+import { disk_name } from './disk.js';
 
 if (process.argv[2] === '--server') {
+
   const server = new McpServer({
     name: 'FileSystem',
-    version: '1.0.0'
+    version: '1.0.0',
+    description:'文件系统管理MCP'
   });
+
   server.registerTool(
     'list_disks',
     {
+      title:'获取磁盘列表',
       description: '获取系统所有磁盘驱动器列表（排除A/B盘）',
       inputSchema: z.object({}),  // 使用 Zod schema
     },
@@ -32,7 +32,7 @@ if (process.argv[2] === '--server') {
         return {
           content: [{
             type: 'text',
-            text: `获取磁盘列表失败: ${error.message}`
+            text: `获取磁盘列表失败: ${error}`
           }],
           isError: true
         };
@@ -66,7 +66,7 @@ if (process.argv[2] === '--server') {
         return {
           content: [{
             type: 'text',
-            text: `读取目录失败: ${error.message}`
+            text: `读取目录失败: ${error}`
           }],
           isError: true
         };
@@ -76,8 +76,12 @@ if (process.argv[2] === '--server') {
 
   const transport = new StdioServerTransport();
   await server.connect(transport);
+
+
   console.error('MCP stdio server up');
 }
+
+
 export default {
   dirRead, disk_name
 }

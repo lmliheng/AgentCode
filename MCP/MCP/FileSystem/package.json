@@ -4,12 +4,13 @@
     "access": "public"
   },
   "name": "@lmliheng/filesystem-mcp",
-  "version": "1.0.7",
+  "version": "1.0.8",
   "description": "文件系统MCP",
   "keywords": [
-    "mcp",
+    "MCP",
     "filesystem",
-    "agent"
+    "agent",
+    "文件管理"
   ],
   "author": "lmliheng",
   "license": "MIT",
@@ -19,22 +20,11 @@
       "import": "./dist/fs_mcp.mjs"
     }
   },
-  "bin": {
-    "filesystem": "index.mjs"
-  },
-  "files": [
-    "index.mjs",
-    "src/",
-    "dist/",
-    "README.md",
-    "test/",
-    "rollup.config.js"
-  ],
   "scripts": {
     "test": "node --test",
     "mcp": "node index.mjs --server",
     "disk": "node src/Disk/disk.js",
-    "build": "rollup -c",
+    "build": "tsc",
     "p": "npm publish --registry=https://registry.npmjs.org/"
   },
   "type": "module",
@@ -43,6 +33,7 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/node": "^26.4.0",
     "rollup": "^4.62.4"
   }
 }
