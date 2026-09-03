@@ -1,0 +1,23 @@
+{
+  "name": "myagent",
+  "version": "0.1.0",
+  "description": "基于 LangGraph 的 CodingAgent：文档理解 → 遗漏分析 → Plan-and-Execute → 开发 → 反馈",
+  "keywords": [
+    "langgraph",
+    "agent",
+    "coding"
+  ],
+  "license": "ISC",
+  "author": "https://github.com/lmliheng",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "agent": "node --env-file=.env index.js"
+  },
+  "dependencies": {
+    "@langchain/core": "^1.2.9",
+    "@langchain/deepseek": "^1.1.10",
+    "@langchain/langgraph": "^1.4.13",
+    "zod": "^4.4.3"
+  }
+}
