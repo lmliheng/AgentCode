@@ -9,16 +9,22 @@ if (process.argv[2] === '--server') {
   const server = new McpServer({
     name: 'FileSystem',
     version: '1.0.0',
-    description:'文件系统管理MCP'
+    description: '文件系统管理MCP'
   });
 
+
+
+  /***
+   * @注册方法：获取磁盘列表
+   */
   server.registerTool(
     'list_disks',
 
     {
-      title:'获取磁盘列表',
+      title: '获取磁盘列表',
       description: '获取系统所有磁盘驱动器列表（排除A/B盘）',
       inputSchema: z.object({}),  // 使用 Zod schema
+      
     },
 
     async () => {
@@ -43,12 +49,16 @@ if (process.argv[2] === '--server') {
   );
 
 
+  /**
+   * @注册方法：读取目录下的目录和子目录，跳过不可读的文件
+   */
   server.registerTool(
     'read_directory',
     {
       description: '读取指定目录下的文件和子目录列表',
       inputSchema: z.object({  // 使用 Zod schema
-        path: z.string().describe('要读取的目录路径')
+        path: z.string().describe('要读取的目录路径'),
+
       }),
     },
     async ({ path }) => {

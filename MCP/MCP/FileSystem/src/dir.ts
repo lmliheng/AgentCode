@@ -40,7 +40,6 @@ export async function dirRead(dirPath: any) {
             console.warn(`跳过文件 ${item}: ${error}`)
             continue
         }
-
     }
     return res
 }
