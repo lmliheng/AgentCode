@@ -1,3 +1,5 @@
 import { embeddingZ } from "../embeddingZ.js";
-let res = await embeddingZ('我是liheng', 512)
-console.log(res.length)
+import { writeFile } from 'fs/promises'
+import path from "path";
+let res = await embeddingZ('说说milvus', 256)
+writeFile(path.join(import.meta.dirname, '1.txt'), JSON.stringify(res), 'utf-8')

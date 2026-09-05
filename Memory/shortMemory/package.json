@@ -1,0 +1,30 @@
+{
+	"name": "02-short-term-memory",
+	"version": "1.0.0",
+	"private": true,
+	"type": "module",
+	"description": "LangChain Thread、Checkpointer 与短期记忆实验",
+	"scripts": {
+		"memory": "node --env-file=.env memory-session.js",
+		"postgres:reset": "node --env-file=.env postgres-session.js reset",
+		"postgres:write": "node --env-file=.env postgres-session.js write",
+		"postgres:continue": "node --env-file=.env postgres-session.js continue",
+		"postgres:unauthorized": "node --env-file=.env postgres-session.js unauthorized",
+		"test": "node --test session.test.js",
+		"test:postgres": "node --test postgres-session.test.js",
+		"check:session": "node --check session.js",
+		"check:memory": "node --check memory-session.js",
+		"check:postgres": "node --check postgres-session.js"
+	},
+	"engines": {
+		"node": ">=20.6.0"
+	},
+	"dependencies": {
+		"@langchain/core": "1.2.5",
+		"@langchain/deepseek": "1.1.6",
+		"@langchain/langgraph": "1.4.13",
+		"@langchain/langgraph-checkpoint-postgres": "1.0.5",
+		"langchain": "1.5.5",
+		"zod": "4.4.3"
+	}
+}

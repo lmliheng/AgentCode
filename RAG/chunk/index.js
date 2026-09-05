@@ -14,8 +14,8 @@ export default {
 
 if (process.argv[2] === '--md') {
     await markdown_chunk(
-        path.join(import.meta.dirname, 'documents/FileSystemMCP-design.md'),
-        path.join(import.meta.dirname, 'output/8.json'),
+        path.join(import.meta.dirname, 'documents/RAG.md'),
+        path.join(import.meta.dirname, 'output/11.json'),
         {
             chunkMaxLength: 100,
             chunkOverlapLength: 40

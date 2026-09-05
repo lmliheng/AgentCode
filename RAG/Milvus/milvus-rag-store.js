@@ -74,7 +74,7 @@ function createClient() {
  *   [0.08, 0.11, ...]
  * ]
  */
-async function createEmbeddings(inputs) {
+export async function createEmbeddings(inputs) {
 	if (!apiKey) {
 		throw new Error('没有检测到 ZHIPU_API_KEY，请先在 .env 中配置。')
 	}

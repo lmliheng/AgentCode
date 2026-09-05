@@ -21,7 +21,7 @@
   "scripts": {
     "parse": "node build-chunks.js --parse",
     "test": "node build-chunks.js",
-    "md": "node index.js --md",
+    "md": "node --env-file=.env index.js --md",
     "pdf": "node index.js --pdf",
     "build": "rollup -c",
     "p": "npm publish --registry=https://registry.npmjs.org/"

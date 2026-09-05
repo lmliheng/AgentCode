@@ -2,6 +2,7 @@ import { appendFile, readdir, readFile, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 
+
 /**
  * 
  * @param {*} source_path md文件的绝对路径
@@ -30,7 +31,15 @@ export async function markdown_chunk(
             rawText: document,
         })
         let chunk = createChunks(parse, options)
+        console.log(chunk)
+        let embedding = await createEmbeddings(chunk.map(item => item.content), 256)
+        console.log(embedding)
+        for (let i = 0; i < chunk.length; i++) {
+            chunk[i].embedding = embedding[i]
+        }
+
         await appendFile(target_path, '')
+
         let chunks = await readFile(target_path, 'utf8')
         if (chunks == '') {
             chunks = '[]'
@@ -200,7 +209,7 @@ function splitIntoParagraphs(text, options) {
  * 让相邻 Chunk 之间保留一点重复内容，
  * 避免重要语义刚好被切断。
  */
-function takeOverlap(text,options) {
+function takeOverlap(text, options) {
     if (options.chunkOverlapLength <= 0) {
         return ''
     }
@@ -251,7 +260,7 @@ export function createChunks(document, options) {
             chunks.push(content)
 
             // 从上一个 Chunk 的末尾取一小段作为下一个 Chunk 的开头。
-            const overlap = takeOverlap(content,options)
+            const overlap = takeOverlap(content, options)
             current = overlap ? [overlap, paragraph] : [paragraph]
             continue
         }
@@ -263,6 +272,8 @@ export function createChunks(document, options) {
     if (current.length > 0) {
         chunks.push(current.join('\n\n'))
     }
+
+
 
     // 把普通字符串 Chunk 转成结构化数据。
     return chunks.map((content, index) => {
@@ -293,6 +304,7 @@ export function createChunks(document, options) {
                 contentHash,
                 chunkLength: content.length
             }
+
         }
     })
 }
@@ -303,4 +315,60 @@ export function createChunks(document, options) {
  */
 function isWindowsPath(path) {
     return /^[A-Za-z]:\\.+$/.test(path);
+}
+
+
+
+
+/**
+ * 
+ * @调用智谱embedding模型的API
+ * input: Array<string> | string 数组长度最长64
+ * 
+ */
+async function createEmbeddings(inputs, dimensions) {
+    if (!process.env.Z_API_KEY) {
+        throw new Error('没有检测到 ZHIPU_API_KEY，请先在 .env 中配置。')
+    }
+
+    // Embedding 维度必须是模型支持的维度。
+    // if (!supportedDimensions.has(dimensions)) {
+    // 	throw new Error('EMBEDDING_DIMENSIONS 只能是 256、512、1024 或 2048。')
+    // }
+
+    // embedding-3 单次最多处理 64 条文本。
+    // 如果真实项目里 Chunk 很多，需要自己做 batch 分批调用。
+    if (inputs.length > 64) {
+        throw new Error('embedding-3 单次请求的数组最大不能超过 64 条。')
+    }
+
+    const response = await fetch(
+        'https://open.bigmodel.cn/api/paas/v4/embeddings',
+        {
+            method: 'POST',
+            headers: {
+                Authorization: `Bearer ${process.env.Z_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: 'embedding-3',
+                input: inputs,
+                dimensions: dimensions
+            })
+        }
+    )
+
+    const result = await response.json()
+
+    if (!response.ok) {
+        throw new Error(
+            `Embedding API 调用失败：${response.status} ${JSON.stringify(result)}`
+        )
+    }
+
+    // API 返回结果里带 index。
+    // 这里先按 index 排序，确保返回向量顺序和 inputs 顺序一致。
+    return result.data
+        .sort((first, second) => first.index - second.index)
+        .map((item) => item.embedding)
 }

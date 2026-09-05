@@ -348,6 +348,7 @@ async function main() {
 
 	// 把切块结果写入 chunks.json。
 	// 后续可以继续读取这个文件，再做 Embedding 和入库。
+	
 	await writeFile(outputFile, JSON.stringify(chunks, null, 2), 'utf8')
 
 	console.log(`文档数量：${documents.length}`)
@@ -387,4 +388,5 @@ if (process.argv[2] === '--md') {
 		path.join(import.meta.dirname, 'output/chunks.json')
 	)
 }
+
 

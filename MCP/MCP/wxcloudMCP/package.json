@@ -1,0 +1,27 @@
+{
+  "name": "wxcloudmcp",
+  "version": "1.0.0",
+  "description": "微信云托管MCP，基于 wxcloud CLI 完成，stdio 形式",
+  "main": "index.ts",
+  "type": "module",
+  "scripts": {
+    "start": "tsx src/index.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "mcp",
+    "wechat",
+    "wxcloud",
+    "cloudrun"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "@modelcontextprotocol/server": "^2.0.0",
+    "@wxcloud/cli": "^1.1.8",
+    "zod": "^4.5.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.4.1",
+    "tsx": "^4.23.13"
+  }
+}
