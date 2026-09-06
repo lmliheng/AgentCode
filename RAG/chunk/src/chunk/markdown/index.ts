@@ -2,6 +2,40 @@ import { appendFile, readdir, readFile, writeFile } from 'node:fs/promises'
 import { createHash } from 'node:crypto'
 import path from 'node:path'
 
+/**
+ * @数据定义
+ */
+export interface Chunk {
+    // 矢量是embedding，后续使用content向量化获取
+
+    chunkId: string,
+    content: string,
+    // Chunk 的元信息-标量
+    metadata: {
+        source: string,
+        title: string,
+        category: string,
+        owner: string,
+        sourceVersion: string,
+        chunkIndex: number,
+        contentHash: string,
+        chunkLength: number
+    }
+}
+
+interface ParseResult {
+    fileName: string;
+    title: string;
+    category: string;
+    owner: string;
+    sourceVersion: string;
+    text: string;
+}
+
+interface chunk_option {
+    chunkMaxLength: number,
+    chunkOverlapLength: number
+}
 
 /**
  * 
@@ -13,63 +47,28 @@ import path from 'node:path'
  *                  }
  */
 export async function markdown_chunk(
-    source_path,
-    target_path,
-    options = {
+    source_path: string,
+    target_path: string,
+    options: chunk_option = {
         chunkMaxLength: 120,
         chunkOverlapLength: 40// overlap 可以减少上下文被切断的问题。
     }
-) {
+): Promise<Chunk[]> {
     //先检查targat_path的json文件是否合法
     if (!(isWindowsPath(source_path) && isWindowsPath(target_path))) {
         throw new Error("文件路径不合法")
     }
+
     try {
         let document = await readFile(source_path, 'utf8')
-        let parse = parseMarkdown({
-            fileName: path.basename(source_path),
-            rawText: document,
-        })
-        let chunk = createChunks(parse, options)
-        console.log(chunk)
-        let embedding = await createEmbeddings(chunk.map(item => item.content), 256)
-        console.log(embedding)
-        for (let i = 0; i < chunk.length; i++) {
-            chunk[i].embedding = embedding[i]
-        }
-
-        await appendFile(target_path, '')
-
-        let chunks = await readFile(target_path, 'utf8')
-        if (chunks == '') {
-            chunks = '[]'
-        }
-        let chunks_json = JSON.parse(chunks)
-        chunks_json.push(...chunk)
-        await writeFile(target_path, JSON.stringify(chunks_json, null, 2))
-
+        let parse = parseMarkdown(path.basename(source_path), document)
+        return createChunks(parse, options)
     } catch (e) {
-        console.log(e)
-    }
-
-}
-
-
-/**
-  * @不存在就创建文件
-  * 弃用
-  */
-async function readOrCreate(path, encoding = "utf8") {
-    try {
-        return await readFile(path, encoding);
-    } catch (err) {
-        if (err.code === "ENOENT") {
-            await writeFile(path, "", encoding);
-            return "[]";
-        }
-        throw err;
+        throw new Error('读取文件失败')
     }
 }
+
+
 
 
 /**
@@ -78,7 +77,7 @@ async function readOrCreate(path, encoding = "utf8") {
  * 这里主要用于生成 contentHash，
  * 方便判断 Chunk 内容是否发生变化。
  */
-function sha256(text) {
+function sha256(text: string) {
     return createHash('sha256').update(text).digest('hex')
 }
 
@@ -92,7 +91,7 @@ function sha256(text) {
  * 4. 合并过多空行
  * 5. 去掉首尾空白
  */
-function normalizeText(text) {
+function normalizeText(text: string) {
     return text
         .replace(/\r\n/g, '\n')
         .replace(/\t/g, ' ')
@@ -111,7 +110,7 @@ function normalizeText(text) {
  *
  * 如果没有读取到，就使用 fallback 默认值。
  */
-function readMetaLine(lines, name, fallback) {
+function readMetaLine(lines: Array<string>, name: string, fallback: string) {
     const line = lines.find((item) => item.startsWith(`${name}:`))
 
     if (!line) {
@@ -131,7 +130,7 @@ function readMetaLine(lines, name, fallback) {
  * - version
  * - 正文内容
  */
-export function parseMarkdown({ fileName, rawText }) {
+export function parseMarkdown(fileName: string, rawText: string): ParseResult {
     const normalizedText = normalizeText(rawText)
     const lines = normalizedText.split('\n')
 
@@ -169,7 +168,7 @@ export function parseMarkdown({ fileName, rawText }) {
  * 如果某个段落本身已经超过 chunkMaxLength，
  * 就只能按照固定长度继续切成多个小片段。
  */
-export function splitLongParagraph(paragraph, options) {
+export function splitLongParagraph(paragraph: string, options: chunk_option) {
     const parts = []
 
     for (let start = 0; start < paragraph.length; start += options.chunkMaxLength) {
@@ -188,7 +187,7 @@ export function splitLongParagraph(paragraph, options) {
  * - 过滤空段落
  * - 如果段落太长，再继续切小
  */
-function splitIntoParagraphs(text, options) {
+function splitIntoParagraphs(text: string, options: chunk_option) {
     return text
         .split(/\n\s*\n/)
         .map((paragraph) => paragraph.replace(/\n/g, ' ').trim())
@@ -209,7 +208,7 @@ function splitIntoParagraphs(text, options) {
  * 让相邻 Chunk 之间保留一点重复内容，
  * 避免重要语义刚好被切断。
  */
-function takeOverlap(text, options) {
+function takeOverlap(text: string, options: chunk_option) {
     if (options.chunkOverlapLength <= 0) {
         return ''
     }
@@ -228,7 +227,7 @@ function takeOverlap(text, options) {
  * 这样做的好处是：
  * 当文档内容或版本变化时，可以更容易识别哪些 Chunk 发生了变化。
  */
-function toChunkId({ fileName, sourceVersion, chunkIndex, content }) {
+function toChunkId(fileName: string, sourceVersion: string, chunkIndex: number, content: string) {
     const sourceName = fileName.replace(/\.md$/, '')
     const contentHash = sha256(content).slice(0, 12)
     const indexText = String(chunkIndex).padStart(3, '0')
@@ -246,10 +245,10 @@ function toChunkId({ fileName, sourceVersion, chunkIndex, content }) {
  * 4. 新 Chunk 开头带上一点 overlap
  * 5. 最后为每个 Chunk 补充 metadata
  */
-export function createChunks(document, options) {
+export function createChunks(document: ParseResult, options: chunk_option): Chunk[] {
     const paragraphs = splitIntoParagraphs(document.text, options)
     const chunks = []
-    let current = []
+    let current: Array<any> = []
     for (const paragraph of paragraphs) {
         // 尝试把当前段落加入正在构建的 Chunk。
         const nextText = [...current, paragraph].join('\n\n')
@@ -273,20 +272,18 @@ export function createChunks(document, options) {
         chunks.push(current.join('\n\n'))
     }
 
-
-
     // 把普通字符串 Chunk 转成结构化数据。
     return chunks.map((content, index) => {
         const chunkIndex = index + 1
         const contentHash = sha256(content).slice(0, 12)
 
         return {
-            chunkId: toChunkId({
-                fileName: document.fileName,
-                sourceVersion: document.sourceVersion,
+            chunkId: toChunkId(
+                document.fileName,
+                document.sourceVersion,
                 chunkIndex,
                 content
-            }),
+            ),
 
             // Chunk 的正文内容。
             // 后续会对这个 content 做 Embedding。
@@ -313,62 +310,7 @@ export function createChunks(document, options) {
 /**
  * @合法的windows绝对路径
  */
-function isWindowsPath(path) {
+function isWindowsPath(path: string) {
     return /^[A-Za-z]:\\.+$/.test(path);
 }
 
-
-
-
-/**
- * 
- * @调用智谱embedding模型的API
- * input: Array<string> | string 数组长度最长64
- * 
- */
-async function createEmbeddings(inputs, dimensions) {
-    if (!process.env.Z_API_KEY) {
-        throw new Error('没有检测到 ZHIPU_API_KEY，请先在 .env 中配置。')
-    }
-
-    // Embedding 维度必须是模型支持的维度。
-    // if (!supportedDimensions.has(dimensions)) {
-    // 	throw new Error('EMBEDDING_DIMENSIONS 只能是 256、512、1024 或 2048。')
-    // }
-
-    // embedding-3 单次最多处理 64 条文本。
-    // 如果真实项目里 Chunk 很多，需要自己做 batch 分批调用。
-    if (inputs.length > 64) {
-        throw new Error('embedding-3 单次请求的数组最大不能超过 64 条。')
-    }
-
-    const response = await fetch(
-        'https://open.bigmodel.cn/api/paas/v4/embeddings',
-        {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${process.env.Z_API_KEY}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                model: 'embedding-3',
-                input: inputs,
-                dimensions: dimensions
-            })
-        }
-    )
-
-    const result = await response.json()
-
-    if (!response.ok) {
-        throw new Error(
-            `Embedding API 调用失败：${response.status} ${JSON.stringify(result)}`
-        )
-    }
-
-    // API 返回结果里带 index。
-    // 这里先按 index 排序，确保返回向量顺序和 inputs 顺序一致。
-    return result.data
-        .sort((first, second) => first.index - second.index)
-        .map((item) => item.embedding)
-}

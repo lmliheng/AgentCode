@@ -1,10 +1,14 @@
 import path from 'path'
-import { markdown_chunk } from './src/markdown/index.js'
-import { pdf_chunk } from './src/pdf/index.js'
+import { markdown_chunk } from './src/chunk/markdown/index.js'
+import { pdf_chunk } from './src/chunk/pdf/index.js'
 
 /**
- * @资料读取解析分块存储
+ * @RAG 工具包
  * 
+ * 资料读取和存储 src/file
+ * 解析分块
+ * 上传至Milvus
+ * Milvus索引
  */
 export default {
     markdown_chunk,

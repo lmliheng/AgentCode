@@ -4,18 +4,19 @@
     "access": "public"
   },
   "name": "@lmliheng/rag-chunk",
-  "version": "1.0.0",
-  "description": "RAG资料读取,解析,分块，存储",
+  "version": "1.0.1",
+  "description": "RAG资料读取,解析,分块，存储，向量化，入库。以及线上管理milvus",
   "keywords": [
     "rag",
-    "chunk"
+    "chunk",
+    "milvus"
   ],
   "author": "lmliheng",
   "license": "MIT",
-  "main": "main.js",
+  "main": "main.ts",
   "exports": {
     ".": {
-      "import": "./dist/rag.mjs"
+      "import": "./index.ts"
     }
   },
   "scripts": {
@@ -28,7 +29,7 @@
   },
   "type": "module",
   "devDependencies": {
-    "rollup": "^4.62.4"
+    "@types/node": "^26.4.1"
   },
   "dependencies": {
     "pdf-parse": "^2.4.5"
