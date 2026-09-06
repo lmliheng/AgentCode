@@ -1,5 +1,5 @@
 import { PDFParse } from 'pdf-parse'
-import { readFile, writeFile, appendFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
 import { createChunks, parseMarkdown } from '../markdown/index.js';
 import path from 'path'
 
@@ -26,12 +26,11 @@ export async function pdf_chunk(
         let buffer = await readFile(source_path)
         let parser = new PDFParse({ data: buffer })
         let PDF_text = await parser.getText()
-        let PDF_meta = await parser.getInfo({ parsePageInfo: true })
         await parser.destroy();
         let parseText = parseMarkdown(path.basename(source_path), PDF_text.text)
-        return createChunks(parseText, options)
-        // await appendFile(target_path, '')
-        // await writeFile(target_path, JSON.stringify(chunk, null, 2))
+        const chunks = createChunks(parseText, options)
+        await writeFile(target_path, JSON.stringify(chunks, null, 2))
+        return chunks
     } catch (e) {
         throw new Error('文件读取或者PDF解析异常')
     }

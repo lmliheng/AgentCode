@@ -4,7 +4,7 @@
  * input: Array<string> | string 数组长度最长64
  * 
  */
-async function createEmbeddings(inputs: Array<string> | string, dimensions: number) {
+export async function createEmbeddings(inputs: Array<string> | string, dimensions: number) {
     const supportedDimensions = new Set([128, 256, 512])
     if (!process.env.Z_API_KEY) {
         throw new Error('没有检测到 ZHIPU_API_KEY，请先在 .env 中配置。')
@@ -12,7 +12,7 @@ async function createEmbeddings(inputs: Array<string> | string, dimensions: numb
 
     // Embedding 维度必须是模型支持的维度。
     if (!supportedDimensions.has(dimensions)) {
-        throw new Error('EMBEDDING_DIMENSIONS 只能是 256、512、1024 或 2048。')
+        throw new Error('EMBEDDING_DIMENSIONS 只能是 128、256 或 512。')
     }
 
     // embedding-3 单次最多处理 64 条文本。

@@ -13,25 +13,31 @@
   ],
   "author": "lmliheng",
   "license": "MIT",
-  "main": "main.ts",
+  "main": "index.ts",
   "exports": {
     ".": {
       "import": "./index.ts"
     }
   },
   "scripts": {
-    "parse": "node build-chunks.js --parse",
-    "test": "node build-chunks.js",
+    "serve": "tsc && node --env-file=.env index.js",
     "md": "node --env-file=.env index.js --md",
-    "pdf": "node index.js --pdf",
-    "build": "rollup -c",
+    "pdf": "node --env-file=.env index.js --pdf",
+    "build": "tsc",
     "p": "npm publish --registry=https://registry.npmjs.org/"
   },
   "type": "module",
   "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
     "@types/node": "^26.4.1"
   },
   "dependencies": {
+    "@zilliz/milvus2-sdk-node": "^3.0.5",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "multer": "^2.3.0",
     "pdf-parse": "^2.4.5"
   }
 }
