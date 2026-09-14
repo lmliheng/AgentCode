@@ -14,7 +14,12 @@
     "query_better": "tsx --env-file=.env src/Prompt/提示词优化器/query.ts --test",
     "rerank": " tsx --env-file=.env src/RAG/reRank/rerank.ts --test",
     "embedding": "tsx --env-file=.env src/RAG/向量模型/embedding_test.js",
-    "vectorRetriever": "tsx --env-file=.env src/RAG/向量检索器/VectorRetriever.js test"
+    "vectorRetriever": "tsx --env-file=.env src/RAG/向量检索器/VectorRetriever.js test",
+    "search": "node --env-file=.env index.js --search",
+    "init": "node --env-file=.env index.js",
+    "collection": "node --env-file=.env milvus/collection.js",
+    "database": "node --env-file=.env milvus/database.js",
+    "connect": "node --env-file=.env milvus/connect.js"
   },
   "repository": {
     "type": "git",
@@ -35,9 +40,11 @@
   "homepage": "https://github.com/lmliheng/AgentCode#readme",
   "dependencies": {
     "@lmliheng/ai_git": "^1.0.8",
+    "@lmliheng/rag-chunk": "^1.0.2",
     "@modelcontextprotocol/express": "^2.0.0",
     "@modelcontextprotocol/node": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
+    "@zilliz/milvus2-sdk-node": "^3.0.4",
     "express": "^5.2.1",
     "zod": "^4.5.4"
   },

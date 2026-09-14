@@ -8,16 +8,9 @@ import {
 	MilvusClient
 } from '@zilliz/milvus2-sdk-node'
 
-// 智谱 Embedding API Key，用来把文本转换成向量。
-const apiKey = process.env.ZHIPU_API_KEY
-
-// Embedding 模型名称，默认使用智谱的 embedding-3。
+const apiKey = process.env.Z_API_KEY
 const embeddingModel = process.env.EMBEDDING_MODEL ?? 'embedding-3'
-
-// 向量维度，必须和后面 Milvus Collection 里的 FloatVector dim 保持一致。
-const dimensions = Number(process.env.EMBEDDING_DIMENSIONS ?? 512)
-
-// Milvus 中的 Collection 名称，可以理解为“向量表”。
+const dimensions = Number(process.env.EMBEDDING_DIMENSIONS ?? 256)
 const collectionName = process.env.MILVUS_COLLECTION ?? 'agent_course_chunks'
 
 // 上一节文档分块后生成的 chunks.json 文件路径。
@@ -45,81 +38,8 @@ function ensureOk(response, action) {
 	}
 }
 
-/**
- * 创建 Milvus 客户端。
- *
- * 这里同时兼容两种连接方式：
- * 1. 本地 Milvus：只配置 MILVUS_ADDRESS 即可；
- * 2. Token 认证：适合 Zilliz Cloud；
- */
-function createClient() {
-	const address = process.env.MILVUS_ADDRESS ?? 'localhost:19530'
-	const token = process.env.MILVUS_TOKEN?.trim()
 
-	return new MilvusClient({
-		address,
-		token
-	})
-}
 
-/**
- * 调用智谱 Embedding API，把文本数组转换成向量数组。
- *
- * 输入：
- * ['退款规则', '发货规则']
- *
- * 输出：
- * [
- *   [0.01, 0.23, ...],
- *   [0.08, 0.11, ...]
- * ]
- */
-export async function createEmbeddings(inputs) {
-	if (!apiKey) {
-		throw new Error('没有检测到 ZHIPU_API_KEY，请先在 .env 中配置。')
-	}
-
-	// Embedding 维度必须是模型支持的维度。
-	if (!supportedDimensions.has(dimensions)) {
-		throw new Error('EMBEDDING_DIMENSIONS 只能是 256、512、1024 或 2048。')
-	}
-
-	// embedding-3 单次最多处理 64 条文本。
-	// 如果真实项目里 Chunk 很多，需要自己做 batch 分批调用。
-	if (inputs.length > 64) {
-		throw new Error('embedding-3 单次请求的数组最大不能超过 64 条。')
-	}
-
-	const response = await fetch(
-		'https://open.bigmodel.cn/api/paas/v4/embeddings',
-		{
-			method: 'POST',
-			headers: {
-				Authorization: `Bearer ${apiKey}`,
-				'Content-Type': 'application/json'
-			},
-			body: JSON.stringify({
-				model: embeddingModel,
-				input: inputs,
-				dimensions
-			})
-		}
-	)
-
-	const result = await response.json()
-
-	if (!response.ok) {
-		throw new Error(
-			`Embedding API 调用失败：${response.status} ${JSON.stringify(result)}`
-		)
-	}
-
-	// API 返回结果里带 index。
-	// 这里先按 index 排序，确保返回向量顺序和 inputs 顺序一致。
-	return result.data
-		.sort((first, second) => first.index - second.index)
-		.map((item) => item.embedding)
-}
 
 /**
  * 读取上一节生成的 chunks.json。
@@ -134,116 +54,7 @@ async function readChunks() {
 	return JSON.parse(rawText)
 }
 
-/**
- * 确保 Milvus Collection 存在。
- *
- * 如果 Collection 已存在：
- * - RESET_COLLECTION=true：先删除，再重新创建；
- * - 否则：直接 load 到内存，供后续检索使用。
- *
- * 如果 Collection 不存在：
- * - 创建 Collection；
- * - 创建向量索引；
- * - load Collection。
- */
-async function ensureCollection(client) {
-	const exists = await client.hasCollection({
-		collection_name: collectionName
-	})
 
-	if (exists.value) {
-		if (process.env.RESET_COLLECTION === 'true') {
-			// 开发调试时可以重置 Collection，避免旧数据影响结果。
-			await client.dropCollection({ collection_name: collectionName })
-		} else {
-			// Collection 已存在时，加载到内存后即可使用。
-			await client.loadCollection({ collection_name: collectionName })
-			return
-		}
-	}
-
-	await client.createCollection({
-		collection_name: collectionName,
-		fields: [
-			{
-				// Chunk 的唯一 ID，作为主键。
-				name: 'chunk_id',
-				data_type: DataType.VarChar,
-				is_primary_key: true,
-				max_length: 256
-			},
-			{
-				// Chunk 原文内容，检索命中后需要返回给大模型作为上下文。
-				name: 'content',
-				data_type: DataType.VarChar,
-				max_length: 4096
-			},
-			{
-				// 原始文档来源，例如 refund-policy.md。
-				name: 'source',
-				data_type: DataType.VarChar,
-				max_length: 512
-			},
-			{
-				// 文档标题，例如“蓝鲸退款规则”。
-				name: 'title',
-				data_type: DataType.VarChar,
-				max_length: 512
-			},
-			{
-				// 文档分类，用于 Metadata Filter，例如 refund、shipping、invoice。
-				name: 'category',
-				data_type: DataType.VarChar,
-				max_length: 128
-			},
-			{
-				// 文档归属方，例如 customer-service。
-				name: 'owner',
-				data_type: DataType.VarChar,
-				max_length: 128
-			},
-			{
-				// 文档版本号，用于区分不同版本的知识。
-				name: 'source_version',
-				data_type: DataType.VarChar,
-				max_length: 128
-			},
-			{
-				// 当前 Chunk 在原文档里的顺序。
-				name: 'chunk_index',
-				data_type: DataType.Int32
-			},
-			{
-				// 内容 hash，用于判断内容是否发生变化，也可以参与生成稳定的 chunk_id。
-				name: 'content_hash',
-				data_type: DataType.VarChar,
-				max_length: 128
-			},
-			{
-				// 真正用于向量检索的字段。
-				// dim 必须和 Embedding API 返回的向量维度一致。
-				name: 'embedding',
-				data_type: DataType.FloatVector,
-				dim: dimensions
-			}
-		],
-		index_params: [
-			{
-				// 给 embedding 字段创建向量索引。
-				field_name: 'embedding',
-
-				// AUTOINDEX 让 Milvus / Zilliz 自动选择合适的索引策略。
-				index_type: IndexType.AUTOINDEX,
-
-				// 使用余弦相似度，适合大多数文本向量检索场景。
-				metric_type: MetricType.COSINE
-			}
-		]
-	})
-
-	// 创建完成后，需要 load 到内存，后续才能执行 search。
-	await client.loadCollection({ collection_name: collectionName })
-}
 
 /**
  * 把文档 Chunk 转换成 Milvus 可以写入的一行数据。
@@ -283,7 +94,6 @@ async function insertChunks(client, chunks) {
 	const embeddings = await createEmbeddings(
 		chunks.map((chunk) => chunk.content)
 	)
-
 	// 将 Chunk 元数据、正文内容、Embedding 向量组装成 Milvus 的写入格式。
 	// toRow 内部通常会把 chunk_id、source、content、version、vector 等字段整理成一行数据。
 	const rows = chunks.map((chunk, index) => toRow(chunk, embeddings[index]))
@@ -313,25 +123,6 @@ async function insertChunks(client, chunks) {
 	return rows.length
 }
 
-/**
- * 以表格形式打印检索结果。
- *
- * 这里不会打印完整 content，只截取前 60 个字符，
- * 方便在命令行里观察结果。
- */
-function printSearchResults(results) {
-	console.table(
-		results.map((item, index) => ({
-			rank: index + 1,
-			score: Number(item.score).toFixed(6),
-			chunk_id: item.chunk_id ?? item.id,
-			title: item.title,
-			category: item.category,
-			source_version: item.source_version,
-			content: String(item.content).slice(0, 60)
-		}))
-	)
-}
 
 /**
  * 根据用户问题执行向量检索。
@@ -462,12 +253,9 @@ function createUpdatedRefundChunks() {
 async function setup() {
 	const client = createClient()
 	await client.connectPromise
-
 	await ensureCollection(client)
-
 	const chunks = await readChunks()
 	const count = await insertChunks(client, chunks)
-
 	console.log(`已写入 Chunk 数量：${count}`)
 }
 

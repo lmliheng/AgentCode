@@ -1,0 +1,43 @@
+{
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/",
+    "access": "public"
+  },
+  "name": "@lmliheng/rag-chunk",
+  "version": "1.0.2",
+  "description": "RAG资料读取,解析,分块，存储，向量化，入库。以及线上管理milvus",
+  "keywords": [
+    "rag",
+    "chunk",
+    "milvus"
+  ],
+  "author": "lmliheng",
+  "license": "MIT",
+  "main": "index.ts",
+  "exports": {
+    ".": {
+      "import": "./index.ts"
+    }
+  },
+  "scripts": {
+    "serve": "tsc && node --env-file=.env index.js",
+    "md": "node --env-file=.env index.js --md",
+    "pdf": "node --env-file=.env index.js --pdf",
+    "build": "tsc",
+    "p": "npm publish --registry=https://registry.npmjs.org/"
+  },
+  "type": "module",
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.2.0",
+    "@types/node": "^26.4.1"
+  },
+  "dependencies": {
+    "@zilliz/milvus2-sdk-node": "^3.0.5",
+    "cors": "^2.8.6",
+    "express": "^5.2.1",
+    "multer": "^2.3.0",
+    "pdf-parse": "^2.4.5"
+  }
+}

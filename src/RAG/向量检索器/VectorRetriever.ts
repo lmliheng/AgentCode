@@ -16,7 +16,14 @@ import { embeddingZ } from "../向量模型/embeddingZ.js";
  * 如果是音频
  * 
  */
-export const documents = [
+
+interface document {
+    id: string,
+    title: string,
+    content: string,
+    vector?: number[]
+}
+export const documents: document[] = [
     {
         id: 'blue-whale-refund-rule',
         title: '蓝鲸退款规则',
@@ -57,39 +64,43 @@ export const documents = [
     }
 ]
 
-async function buildMemoryVectorStore(rawDocuments) {
-    const vectors:number[] = []
+async function buildMemoryVectorStore(rawDocuments: document[]) {
+    const vectors: number[][] = []
     for (const document of rawDocuments) {
-        let vector = await embeddingZ(document.content)
+        let response = await embeddingZ(document.content)
+        let vector = (response.data[0]?.embedding)!
         vectors.push(vector)
     }
-
-    return rawDocuments.map((document, index) => ({
+    return rawDocuments.map((document, index: number) => ({
         ...document,
-        vector: vectors[index]
+        vector: vectors[index]!
     }))
 }
 
 
-async function createSimilarity(question:string) {
-    let q_v = await embeddingZ(question)
-    let similarPercent = new Array(documents.length).fill(0)
-    return similarPercent.map((item, index) => cosSimlarity(q_v, vectorDocument[index].vector))
+async function createSimilarity(question: string, document: document[]) {
+    let response = await embeddingZ(question)
+    let question_embedding = (response.data[0]?.embedding)!
+    let similarPercent = new Array(document.length).fill(0)
+    for (let i = 0; i < document.length; i++) {
+        similarPercent[i] = cosSimlarity(question_embedding, document[i]!.vector!)
+
+    }
+    return similarPercent
 }
 
 const question = '我买的咖啡机 3000 元，现在想退货。这个订单需要人工审核吗？如果要退，具体流程怎么走？'
-
 if (process.argv[2] === 'test') {
     let vectorDocument = await buildMemoryVectorStore(documents)
-    //  console.log(vectorDocument)
+
     // '我买的咖啡机 3000 元，现在想退货。这个订单需要人工审核吗？如果要退，具体流程怎么走？'
     // '我去年的3千块的券现在能用吗'
     // '这个包售后吗 时限是多久，维修范围是哪些，是以旧换新还是维修'
-    let res = await createSimilarity(question)
+    let res = await createSimilarity(question, vectorDocument)
     console.log('搜索：', question)
     console.table(res.map((item, index) => {
         return {
-            title: documents[index].title,
+            title: documents[index]!.title,
             //  content: documents[index].content,
             similarPercent: item
         }
