@@ -1,9 +1,10 @@
 import { ChatDeepSeek } from "@langchain/deepseek"
-import { messageAdd, messageCreate } from '../../LLMclients/message_tools.js'
-import { HumanMessage, AIMessage, SystemMessage, tool, ToolMessage } from "langchain"
+
+import { HumanMessage, AIMessage, SystemMessage, tool, ToolMessage, type BaseMessage } from "langchain"
 import fs_mcp from '@lmliheng/filesystem-mcp'
 import * as readline from 'readline'
 import z from 'zod'
+import type { MessageStructure } from "@langchain/core/messages"
 
 /**
  * @LLM对象
@@ -52,21 +53,17 @@ if (process.argv[2] === '--chat') {
         input: process.stdin,
         output: process.stdout,
     })
-    let message
+    let message: BaseMessage[] = []
     function ask() {
         rl.question('user: ', async (answer) => {
             if (answer.toLowerCase() === 'stop') {
                 rl.close()
                 return
             }
-            if (message === undefined) {
-                message = messageCreate(answer)
-            } else {
-                message = messageAdd(message, answer, 'user')
-            }
+            message.push(new HumanMessage(answer))
             let res = await deepseek.invoke(message)
             console.log(res.content)
-            message = messageAdd(message, res.content, 'assistant')
+            message.push(res)
             ask()
         })
     }
@@ -115,9 +112,9 @@ if (process.argv[2] === '--tool') {
 
     let deepseek_withTools = deepseek.bindTools([dirRead, diskName])
     // tool calling
-    let q = '帮我检查电脑磁盘名 并检查C盘下文件和目录'
+    let question = '帮我检查电脑磁盘名 并检查C盘下文件和目录'
 
-    let message = [new HumanMessage(q)]
+    let message: BaseMessage[] = [new HumanMessage(question)]
 
     for (let i = 0; i < 10; i++) {
         let response = await deepseek_withTools.invoke(message)
@@ -125,8 +122,8 @@ if (process.argv[2] === '--tool') {
         let tool_calls = response.tool_calls
         if (tool_calls && tool_calls.length > 0) {
             message.push(new AIMessage({
-                content: response.content,
-                tool_calls: response.tool_calls
+                content: response.content ?? '',
+                tool_calls
             }))
             /**
                 * @模型调用阶段
