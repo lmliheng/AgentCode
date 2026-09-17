@@ -39,6 +39,10 @@
   },
   "homepage": "https://github.com/lmliheng/AgentCode#readme",
   "dependencies": {
+    "@langchain/core": "^1.2.8",
+    "@langchain/deepseek": "^1.1.8",
+    "@lmliheng/filesystem-mcp": "^1.0.7",
+    "langchain": "^1.5.9",
     "@lmliheng/ai_git": "^1.0.8",
     "@lmliheng/rag-chunk": "^1.0.2",
     "@modelcontextprotocol/express": "^2.0.0",
