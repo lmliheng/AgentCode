@@ -40,13 +40,7 @@ interface chunk_option {
 }
 
 /**
- * 
- * @param {*} source_path md文件的绝对路径
- * @param {*} target_path json文件的绝对路径
- * @param {*}  options = {
- *                  chunkMaxLength: 120,
- *                  chunkOverlapLength: 40// overlap 可以减少上下文被切断的问题。
- *                  }
+ * @将md格式的content内容chunk化
  */
 export function markdown_chunk(
     fileName: string,

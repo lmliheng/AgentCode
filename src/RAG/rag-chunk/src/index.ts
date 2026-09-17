@@ -4,6 +4,11 @@ import { markdown_chunk } from './chunk/markdown/index.js'
 import { pdf_chunk } from './chunk/pdf/index.js'
 import { createServer } from './server/index.js'
 
+export {
+    markdown_chunk,
+    pdf_chunk
+}
+
 /**
  * @RAG 工具包
  *
@@ -15,16 +20,21 @@ import { createServer } from './server/index.js'
  * web服务
  */
 
-// allowedOrigins 优先从环境变量读取，多个用逗号分隔
-const allowedOrigins = process.env.ALLOWED_ORIGINS
-    ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
-    : ['http://127.0.0.1:80']
+if (process.argv[2] == 'serve') {
+    // allowedOrigins 优先从环境变量读取，多个用逗号分隔
+    const allowedOrigins = process.env.ALLOWED_ORIGINS
+        ? process.env.ALLOWED_ORIGINS.split(',').map(s => s.trim())
+        : ['http://127.0.0.1:80']
 
-createServer({ secret: 'lmliheng', allowedOrigins }).listen(3000, () => console.log('服务运行'))
+    createServer({ secret: 'lmliheng', allowedOrigins }).listen(3000, () => console.log('服务运行'))
+
+}
+
 
 if (process.argv[2] === '--md') {
-    const sourcePath = path.join(import.meta.dirname, 'documents/RAG.md')
-    const targetPath = path.join(import.meta.dirname, 'output/11.json')
+    const sourcePath = path.join(import.meta.dirname, '../documents/RAG.md')
+    const targetPath = path.join(import.meta.dirname, '../output/13.json')
+
     const content = await readFile(sourcePath, 'utf-8')
     const chunks = markdown_chunk(
         path.basename(sourcePath),
@@ -34,6 +44,7 @@ if (process.argv[2] === '--md') {
             chunkOverlapLength: 40
         }
     )
+
     await writeFile(targetPath, JSON.stringify(chunks, null, 2))
     console.log(`分块完成，已写入 ${targetPath}`)
 }

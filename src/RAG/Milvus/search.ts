@@ -13,7 +13,7 @@ export async function searchQuestion(client: MilvusClient, collectionName: strin
         // 查询向量。传数组 Milvus 支持一次查多个向量。
         data: query,
 
-        limit: 4,
+        limit: 30,
 
         // Metadata Filter，例如：category == "refund"。
         filter,

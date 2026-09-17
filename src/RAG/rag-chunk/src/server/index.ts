@@ -174,12 +174,9 @@ export function createServer(config: serverConfig) {
             const content = buffer.toString('utf-8')
 
             // 支持从请求体传入自定义分块参数
-            const chunkMaxLength = typeof req.body.chunkMaxLength === 'number'
-                ? req.body.chunkMaxLength
-                : 120
-            const chunkOverlapLength = typeof req.body.chunkOverlapLength === 'number'
-                ? req.body.chunkOverlapLength
-                : 40
+            
+            const chunkMaxLength = 120
+            const chunkOverlapLength = 40
 
             res.json({
                 code: 200,
@@ -300,7 +297,7 @@ export function createServer(config: serverConfig) {
             anns_field: 'embedding',
 
             // 查询向量。这里传数组，是因为 Milvus 支持一次查多个向量。
-            data: [queryVector],
+            data: [queryVector!],
 
             // 返回最相似的前 3 条。
             limit: 3,

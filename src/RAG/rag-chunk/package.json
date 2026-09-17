@@ -20,9 +20,9 @@
     }
   },
   "scripts": {
-    "serve": "tsc && node --env-file=.env index.js",
-    "md": "node --env-file=.env index.js --md",
-    "pdf": "node --env-file=.env index.js --pdf",
+    "serve": "tsx --env-file=.env src/index.js serve",
+    "md": "tsx --env-file=.env src/index.ts --md",
+    "pdf": "tsx --env-file=.env src/index.js --pdf",
     "build": "tsc",
     "p": "npm publish --registry=https://registry.npmjs.org/"
   },
