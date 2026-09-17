@@ -4,7 +4,7 @@
  */
 
 import { readFile } from 'fs/promises'
-import { client } from "./milvus/connect.js";
+import { client } from "./connect.js";
 import { IndexType, MetricType, DataType } from "@zilliz/milvus2-sdk-node";
 import { embeddingZ } from '../embeddingZ.js'
 
@@ -176,7 +176,7 @@ await client.loadCollection({
     collection_name: collectionName
 })
 
-async function searchQuestion(client, question, filter) {
+async function searchQuestion(client, collectionName, question, filter) {
     const query = await embeddingZ(question)
     const result = await client.search({
         collection_name: collectionName,

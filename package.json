@@ -4,22 +4,22 @@
   "description": "Agent应用学习仓库",
   "main": "index.js",
   "scripts": {
-    "chat": "tsx --env-file=.env src/LLM/chat.ts chat",
-    "balance": "tsx --env-file=.env src/LLM/chat.ts balance",
-    "tool_calling": "tsx --env-file=.env src/MCP/ToolCalling/toolcalling.ts",
+    "chat:llm": "tsx --env-file=.env src/LLM/chat.ts chat",
+    "balance:llm": "tsx --env-file=.env src/LLM/chat.ts balance",
+    "tool_calling:agent": "tsx --env-file=.env src/MCP/ToolCalling/toolcalling.ts",
     "agent": "tsx --env-file=.env MyAgent/index.js ",
-    "comsume": "tsx --env-file=.env scripts/ai_git.js comsume",
-    "commits": "tsx --env-file=.env scripts/ai_git.js commits",
-    "batch": "tsx --env-file=.env scripts/ai_git.js batch",
-    "query_better": "tsx --env-file=.env src/Prompt/提示词优化器/query.ts --test",
-    "rerank": " tsx --env-file=.env src/RAG/reRank/rerank.ts --test",
-    "embedding": "tsx --env-file=.env src/RAG/向量模型/embedding_test.js",
-    "vectorRetriever": "tsx --env-file=.env src/RAG/向量检索器/VectorRetriever.js test",
-    "search": "node --env-file=.env index.js --search",
-    "init": "node --env-file=.env index.js",
-    "collection": "node --env-file=.env milvus/collection.js",
-    "database": "node --env-file=.env milvus/database.js",
-    "connect": "node --env-file=.env milvus/connect.js"
+    "comsume:script": "tsx --env-file=.env scripts/ai_git.js comsume",
+    "commits:script": "tsx --env-file=.env scripts/ai_git.js commits",
+    "batch:script": "tsx --env-file=.env scripts/ai_git.js batch",
+    "query_better:prompt": "tsx --env-file=.env src/Prompt/提示词优化器/query.ts --test",
+    "rerank:rag": " tsx --env-file=.env src/RAG/reRank/rerank.ts --test",
+    "embedding:rag": "tsx --env-file=.env src/RAG/向量模型/embedding_test.js",
+    "vectorRetriever:rag": "tsx --env-file=.env src/RAG/向量检索器/VectorRetriever.js test",
+    "connect:rag": "tsx --env-file=.env src/RAG/Milvus/milvus/main.ts test",
+    "collection:rag":"tsx --env-file=.env src/RAG/Milvus/milvus/main.ts collection",
+    "check:rag": "tsx --env-file=.env src/RAG/Milvus/milvus/main.ts check",
+    "insert:rag":"tsx --env-file=.env src/RAG/Milvus/milvus/main.ts insert",
+    "search:rag":"tsx --env-file=.env src/RAG/Milvus/milvus/main.ts search"
   },
   "repository": {
     "type": "git",
@@ -46,7 +46,10 @@
     "@modelcontextprotocol/server": "^2.0.0",
     "@zilliz/milvus2-sdk-node": "^3.0.4",
     "express": "^5.2.1",
-    "zod": "^4.5.4"
+    "zod": "^4.5.4",
+    "cors": "^2.8.6",
+    "multer": "^2.3.0",
+    "pdf-parse": "^2.4.5"
   },
   "devDependencies": {
     "@types/node": "^22.20.2"
