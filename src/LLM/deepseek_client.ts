@@ -71,6 +71,9 @@ type JsonSchemaProperty = {
   required?: string[];
 }
 
+/**
+ * @工具调用
+ */
 export interface ToolCall {
   index: number
   id: string;

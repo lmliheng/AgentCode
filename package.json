@@ -16,10 +16,10 @@
     "embedding:rag": "tsx --env-file=.env src/RAG/向量模型/embedding_test.js",
     "vectorRetriever:rag": "tsx --env-file=.env src/RAG/向量检索器/VectorRetriever.js test",
     "connect:rag": "tsx --env-file=.env src/RAG/Milvus/index.ts test",
-    "collection:rag":"tsx --env-file=.env src/RAG/Milvus/index.ts collection",
+    "collection:rag": "tsx --env-file=.env src/RAG/Milvus/index.ts collection",
     "check:rag": "tsx --env-file=.env src/RAG/Milvus/index.ts check",
-    "insert:rag":"tsx --env-file=.env src/RAG/Milvus/index.ts insert",
-    "search:rag":"tsx --env-file=.env src/RAG/Milvus/index.ts search"
+    "insert:rag": "tsx --env-file=.env src/RAG/Milvus/index.ts insert",
+    "search:rag": "tsx --env-file=.env src/RAG/Milvus/index.ts search"
   },
   "repository": {
     "type": "git",

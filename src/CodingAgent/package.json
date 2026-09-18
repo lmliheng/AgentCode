@@ -1,0 +1,30 @@
+{
+  "name": "coding-agent",
+  "version": "1.0.0",
+  "description": "coding Agent 对标 cloude code 的Agent应用",
+  "main": "index.js",
+  "scripts": {
+    "test:ds": "tsx --env-file=.env src/test/ds.test.ts",
+    "cli:build": "vite build",
+    "cli:dev":"node --env-file=.env src/cli/dist/main.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "^22.20.2",
+    "@vitejs/plugin-vue": "^6.0.9",
+    "@vue-tui/vite": "^0.3.1",
+    "vite": "^8.3.0"
+  },
+  "dependencies": {
+    "@inquirer/prompts": "^8.7.2",
+    "@vue-tui/runtime": "^0.3.0",
+    "chalk": "^6.0.0",
+    "commander": "^15.0.0",
+    "inquirer": "^14.2.2",
+    "vitest": "^5.0.1",
+    "vue": "^3.5.43"
+  }
+}
