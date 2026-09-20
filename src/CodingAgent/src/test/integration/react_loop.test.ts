@@ -535,16 +535,13 @@ console.log(greet('World'));
             { workspacePath: workspaceDir, maxIterations: 5, maxConcurrency: 2 }
         );
 
-        const startTime = Date.now();
         const result = await runtime.run('执行多个延迟任务');
-        const elapsed = Date.now() - startTime;
 
         expect(result.state.stopReason?.type).toBe('task_completed');
         expect(result.state.toolCallCount).toBe(5);
-        // 并发 2，5 个任务各 100ms，理论耗时约 300ms（2+2+1）
-        expect(elapsed).toBeGreaterThanOrEqual(250);
-        expect(elapsed).toBeLessThan(400);  // 如果串行会是 500ms
-        // 最大并发数不超过配置值
-        expect(maxObservedConcurrent).toBeLessThanOrEqual(2);
+        // 并发度是直接信号：5 个任务、上限 2，运行过程中必须真的同时到过 2 个。
+        // 这里原先是断言 run() 的墙钟上界（elapsed < 400ms），但 run() 结束时会
+        // 真实执行验收命令（npm test），耗时不再只反映批量并发，该代理指标已失效。
+        expect(maxObservedConcurrent).toBe(2);
     });
 });

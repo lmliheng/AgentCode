@@ -2,7 +2,7 @@ import { ref, reactive } from 'vue';
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
 import { DeepSeekProvider } from '../../provider/deepseek.provider.js'
 import type { Tool } from '../../types/Tool.js'
-
+import type { PendingAction, ApprovalDecision } from '../../types/Tool.js';
 import { ReadFileTool } from '../../tools/read_file.js';
 import { ApplyDiffTool } from '../../tools/apply_diff.js';
 import { CreateFileTool } from '../../tools/create_file.js';
@@ -35,9 +35,6 @@ export function loadTools(): Tool[] {
 }
 
 
-
-import type { PendingAction } from '../../types/Tool.js';
-
 export interface AgentMessage {
     id: string;
     role: 'user' | 'assistant' | 'system';
@@ -60,11 +57,12 @@ export function useAgent() {
         toolCallCount: 0,
         iterationCount: 0,
         totalTokens: 0,
+        tokenUsageComplete: true,
         modelName: 'deepseek-chat',
     });
 
     let runtime: AgentRuntime | null = null;
-    let approvalResolve: ((value: 'approve' | 'reject') => void) | null = null;
+    let approvalResolve: ((value: ApprovalDecision) => void) | null = null;
 
     function initRuntime(config: {
         workspacePath: string;
@@ -85,6 +83,13 @@ export function useAgent() {
             workspacePath: config.workspacePath,
             maxIterations: config.maxIterations ?? 50,
             maxConcurrency: config.maxConcurrency ?? 3,
+            // 审批由交互层决定：把待审批操作交给 UI，并保持阻塞直到用户按键
+            requestApproval: (action: PendingAction) => {
+                pendingApproval.value = action;
+                return new Promise<ApprovalDecision>((resolve) => {
+                    approvalResolve = resolve;
+                });
+            },
         });
 
         stats.modelName = config.modelName ?? 'deepseek-chat';
@@ -103,15 +108,6 @@ export function useAgent() {
         });
 
         try {
-            // 拦截 requestApproval
-            const originalRequestApproval = (runtime as any).state?.requestApproval;
-            (runtime as any).requestApproval = async (action: PendingAction) => {
-                pendingApproval.value = action;
-                return new Promise<'approve' | 'reject'>((resolve) => {
-                    approvalResolve = resolve;
-                });
-            };
-
             const result = await runtime.run(prompt);
 
             // 添加最终答案
@@ -120,14 +116,15 @@ export function useAgent() {
                 messages.value.push({
                     id: `answer-${Date.now()}`,
                     role: 'assistant',
-                    answer: (lastDecision as any).answer,
+                    answer: lastDecision.answer,
                 });
             }
 
             // 更新统计
             stats.toolCallCount = result.state.toolCallCount;
             stats.iterationCount = result.state.iterationCount;
-            stats.totalTokens = (result.state as any).totalTokens ?? 0;
+            stats.totalTokens = result.state.tokenUsage.totalTokens;
+            stats.tokenUsageComplete = result.state.tokenUsage.complete;
         } catch (err: any) {
             messages.value.push({
                 id: `error-${Date.now()}`,
@@ -141,7 +138,7 @@ export function useAgent() {
         }
     }
 
-    function handleApproval(action: 'approve' | 'reject') {
+    function handleApproval(action: ApprovalDecision) {
         if (approvalResolve) {
             approvalResolve(action);
             approvalResolve = null;

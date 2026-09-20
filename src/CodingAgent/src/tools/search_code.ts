@@ -35,6 +35,8 @@ export class SearchCodeTool implements Tool<SearchCodeParams> {
         runsShell: false,
         requiresApproval: false,
     };
+    /** 命中的行会带上上下文行，按体积（字符 + 行数）而非仅条数约束 */
+    outputBudget = { maxChars: 12000, maxLines: 400 };
 
     getSchema() {
         return {

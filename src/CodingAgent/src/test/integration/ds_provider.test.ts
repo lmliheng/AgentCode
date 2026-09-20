@@ -1,7 +1,26 @@
-// tests/integration/deepseek-provider.test.ts
+// src/test/integration/ds_provider.test.ts
+//
+// 真实 API 的 Provider 集成测试。
+// 断言的是「协议」：工具声明是否下发、模型的原生工具调用是否被翻译成运行时决策、
+// 没有工具调用时是否回落为完成决策。确定性更强的情形（并行调用、参数损坏）见
+// src/test/provider/deepseek-translation.test.ts。
 import { describe, it, expect, beforeAll } from 'vitest';
 import { DeepSeekProvider } from '../../provider/deepseek.provider.js';
+import type { ToolDefinition } from '../../types/AgentProvider.js';
 import type { ChatMessage } from '../../types/Message.js';
+import type { Action } from '../../types/ReAct.js';
+
+const readFileTool: ToolDefinition = {
+    name: 'read_file',
+    description: '读取工作区内的文件内容',
+    parameters: {
+        type: 'object',
+        properties: {
+            path: { type: 'string', description: '相对于工作区根目录的文件路径' },
+        },
+        required: ['path'],
+    },
+};
 
 describe('DeepSeek Provider 集成测试', () => {
     let provider: DeepSeekProvider;
@@ -12,180 +31,95 @@ describe('DeepSeek Provider 集成测试', () => {
             throw new Error('请设置 DEEPSEEK_API_KEY 环境变量');
         }
 
+        // 刻意不传 baseUrl，以同时覆盖默认端点
         provider = new DeepSeekProvider({
             apiKey,
-            baseUrl: 'https://api.deepseek.com/v1/chat/completions',
             modelName: 'deepseek-chat',
             temperature: 0.1,
             maxTokens: 2048,
         });
     });
 
-    it('应该能正常连接并返回 Final 决策', async () => {
+    it('应该下发工具声明并返回带调用标识的动作决策', async () => {
         const messages: ChatMessage[] = [
-            {
-                role: 'system',
-                content: `你是一个 AI 编码助手。请严格按以下 JSON 格式回复：
-{
-    "type": "Final",
-    "answer": "你的回答",
-    "thought": "你的思考过程"
-}
-
-不要包含其他任何内容，只返回 JSON。`,
-            },
-            {
-                role: 'user',
-                content: '请用一句话介绍 JavaScript 的闭包。',
-            },
+            { role: 'system', content: '你是一个编码助手。需要读写文件时必须调用工具。' },
+            { role: 'user', content: '请读取 package.json 的内容。' },
         ];
 
-        const response = await provider.decide(messages);
-
-        console.log(' 原始响应:', response.rawContent);
-        console.log(' Token 用量:', response.usage);
-
-        expect(response.decision.type).toBe('Final');
-        expect(response.decision).toHaveProperty('answer');
-        expect(response.usage!.totalTokens).toBeGreaterThan(0);
-    }, 30000); // 30秒超时
-
-    it('应该能返回 Action 决策（工具调用）', async () => {
-        const messages: ChatMessage[] = [
-            {
-                role: 'system',
-                content: `你是一个 AI 编码助手。你有以下工具可用：
-- read_file: 读取文件内容
-- write_file: 写入文件内容
-- run_command: 执行 shell 命令
-
-请严格按以下 JSON 格式回复：
-{
-    "type": "Action",
-    "tool": "工具名称",
-    "params": { "参数名": "参数值" },
-    "thought": "为什么选择这个工具"
-}
-
-不要包含其他任何内容，只返回 JSON。`,
-            },
-            {
-                role: 'user',
-                content: '我想查看 package.json 文件的内容，请帮我读取。',
-            },
-        ];
-
-        const response = await provider.decide(messages);
-
-        console.log('📝 原始响应:', response.rawContent);
-        console.log('🎯 决策类型:', response.decision.type);
+        const response = await provider.decide(messages, [readFileTool]);
 
         expect(response.decision.type).toBe('Action');
-        if (response.decision.type === 'Action') {
-            expect(response.decision.tool).toBe('read_file');
-            expect(response.decision.params).toHaveProperty('path');
-        }
+        const action = response.decision as Action;
+        expect(action.tool).toBe('read_file');
+        expect(action.params).toHaveProperty('path');
+        // 调用标识必须被保留，消息序列才能靠它把工具结果与调用配对
+        expect(action.toolCallId).toBeTruthy();
     }, 30000);
 
-    it('应该能正确处理流式推理（reasoning_content）', async () => {
+    it('应该在无需工具时回落为完成决策', async () => {
         const messages: ChatMessage[] = [
             {
                 role: 'system',
-                content: `你是一个 AI 编码助手。请严格按以下 JSON 格式回复：
-{
-    "type": "Final",
-    "answer": "你的回答",
-    "thought": "你的思考过程"
-}
-
-不要包含其他任何内容，只返回 JSON。`,
+                content: '你是一个编码助手。只有需要读写文件时才调用工具；纯知识性问题请直接回答。',
             },
-            {
-                role: 'user',
-                content: '请解释一下 React 的 useEffect 钩子。',
-            },
+            { role: 'user', content: '请用一句话说明 JavaScript 的闭包是什么。' },
         ];
 
-        const response = await provider.decide(messages);
+        const response = await provider.decide(messages, [readFileTool]);
 
-        console.log('🧠 推理内容:', response.reasoningContent);
-        console.log('📝 回答内容:', response.decision.type === 'Final' ? response.decision.answer : '');
+        expect(response.decision.type).toBe('Final');
+        if (response.decision.type === 'Final') {
+            expect(response.decision.answer.length).toBeGreaterThan(0);
+        }
+    }, 30000);
 
-        // DeepSeek 可能会返回 reasoning_content
+    it('应该在未提供任何工具时仍返回完成决策', async () => {
+        const messages: ChatMessage[] = [
+            { role: 'user', content: '请用一句话说明什么是向量检索。' },
+        ];
+
+        const response = await provider.decide(messages, []);
+
+        expect(response.decision.type).toBe('Final');
+    }, 30000);
+
+    it('应该返回用量并保留思考内容', async () => {
+        const messages: ChatMessage[] = [
+            { role: 'user', content: '请用一句话解释 React 的 useEffect 钩子。' },
+        ];
+
+        const response = await provider.decide(messages, []);
+
+        // 用量是运行状态累计值的唯一来源，必须存在
+        expect(response.usage).toBeDefined();
+        expect(response.usage!.totalTokens).toBeGreaterThan(0);
+        expect(response.usage!.promptTokens).toBeGreaterThan(0);
+
         if (response.reasoningContent) {
             expect(typeof response.reasoningContent).toBe('string');
-            expect(response.reasoningContent.length).toBeGreaterThan(0);
-        }
-    }, 30000);
-
-    it('应该能处理 Replan 决策', async () => {
-        const messages: ChatMessage[] = [
-            {
-                role: 'system',
-                content: `你是一个 AI 编码助手。当你发现当前方案不可行时，可以重新规划。
-
-请严格按以下 JSON 格式回复：
-{
-    "type": "Replan",
-    "reason": "重新规划的原因",
-    "newPlan": [
-        {
-            "id": "step-1",
-            "description": "步骤描述",
-            "status": "pending",
-            "dependsOn": [],
-            "completionCriteria": "完成标准"
-        }
-    ],
-    "thought": "你的思考过程"
-}
-
-不要包含其他任何内容，只返回 JSON。`,
-            },
-            {
-                role: 'user',
-                content: '之前的方案有问题，请重新规划一个三步计划来完成一个 Web 服务器项目。',
-            },
-        ];
-
-        const response = await provider.decide(messages);
-
-        console.log('📝 原始响应:', response.rawContent);
-
-        expect(response.decision.type).toBe('Replan');
-        if (response.decision.type === 'Replan') {
-            expect(Array.isArray(response.decision.newPlan)).toBe(true);
-            expect(response.decision.newPlan.length).toBeGreaterThanOrEqual(1);
-            expect(response.decision.reason).toBeTruthy();
         }
     }, 30000);
 
     it('应该能处理 API 错误（无效的 API Key）', async () => {
         const badProvider = new DeepSeekProvider({
             apiKey: 'invalid-key-12345',
-            baseUrl: 'https://api.deepseek.com/v1/chat/completions',
             modelName: 'deepseek-chat',
         });
 
-        const messages: ChatMessage[] = [
-            { role: 'user', content: 'hello' },
-        ];
+        const messages: ChatMessage[] = [{ role: 'user', content: 'hello' }];
 
-        await expect(badProvider.decide(messages)).rejects.toThrow();
+        await expect(badProvider.decide(messages, [])).rejects.toThrow();
     }, 15000);
 
     it('应该能处理超时错误', async () => {
         const timeoutProvider = new DeepSeekProvider({
             apiKey: process.env.DEEPSEEK_API_KEY!,
-            baseUrl: 'https://api.deepseek.com/v1/chat/completions',
             modelName: 'deepseek-chat',
-            timeout: 100, // 1ms 超时
+            timeout: 100,
         });
 
-        const messages: ChatMessage[] = [
-            { role: 'user', content: '请写一篇长文章' },
-        ];
+        const messages: ChatMessage[] = [{ role: 'user', content: '请写一篇长文章' }];
 
-        await expect(timeoutProvider.decide(messages)).rejects.toThrow();
+        await expect(timeoutProvider.decide(messages, [])).rejects.toThrow();
     }, 5000);
 });

@@ -19,6 +19,11 @@ export class FetchUrlTool implements Tool<FetchUrlParams> {
         runsShell: false,
         requiresApproval: true,
     };
+    /**
+     * 抓回的正文按体积设上下文预算；工具内的 MAX_BODY_SIZE 只作内存防护，
+     * 两者口径不同，不再用同一个数字兼顾。
+     */
+    outputBudget = { maxChars: 30000, maxLines: 800 };
 
     getSchema() {
         return {

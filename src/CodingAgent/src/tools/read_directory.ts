@@ -29,6 +29,11 @@ export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
         runsShell: false,
         requiresApproval: false,
     };
+    /**
+     * maxItems 只限条目数，且返回的是嵌套树（每项还带 path/size），
+     * 体积仍然不定 —— 这里补上字符与行数两个维度。
+     */
+    outputBudget = { maxChars: 12000, maxLines: 400 };
 
     getSchema() {
         return {

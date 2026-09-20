@@ -20,6 +20,11 @@ export class RunCommandTool implements Tool<RunCommandParams> {
         runsShell: true,
         requiresApproval: true,  // 执行命令需要人工确认
     };
+    /**
+     * 命令输出此前完全没有上限。字符上限定得比全局默认宽（因为命令输出本身较长），
+     * 行数上限用于挡住「大量短行」类输出；截断会保留尾部，失败摘要不会丢。
+     */
+    outputBudget = { maxChars: 30000, maxLines: 500 };
 
     getSchema() {
         return {

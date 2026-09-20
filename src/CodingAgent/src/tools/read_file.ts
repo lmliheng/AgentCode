@@ -26,6 +26,11 @@ export class ReadFileTool implements Tool<ReadFileParams> {
         runsShell: false,
         requiresApproval: false,
     };
+    /**
+     * 自身内容上限是 8000 字符 / 200 行，这里留出 JSON 信封的余量，
+     * 使已按自身口径截断过的内容不会再被运行时兜底二次截断。
+     */
+    readonly outputBudget = { maxChars: 10000, maxLines: 300 };
 
     validate(params: unknown): ValidationResult {
         const errors: string[] = [];

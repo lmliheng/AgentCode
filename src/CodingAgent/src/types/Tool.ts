@@ -1,13 +1,14 @@
 // src/types/Tool.ts
 
+import type { OutputBudget } from '../output-budget.js';
 
 
 
 /**
  * 工具的统一抽象接口
- * 
+ *
  * 所有工具（读文件、写文件、运行测试等）都需要实现此接口
- * 
+ *
  * 感知|变更|验证|控制 类工具
  */
 export interface Tool<T extends ToolParams = ToolParams> {
@@ -17,7 +18,14 @@ export interface Tool<T extends ToolParams = ToolParams> {
     readonly description: string;
     //权限
     readonly permissions: ToolPermissions;
-    //参数校验 
+    /**
+     * 可选的输出预算声明。
+     *
+     * 声明后该工具的输出按自身预算处理；未声明则由运行时以全局默认兜底
+     * （见 src/output-budget.ts 与 design.md D5）。两个维度同时生效。
+     */
+    readonly outputBudget?: OutputBudget;
+    //参数校验
     validate(params: unknown): ValidationResult
     /**
      * 执行工具
@@ -90,8 +98,20 @@ export interface ToolContext {
     runId: string
     signal?: AbortSignal;  // 异步长任务-取消函数
     // 用于 HITL 回调
-    requestApproval(action: PendingAction): Promise<'approve' | 'reject'>
+    requestApproval(action: PendingAction): Promise<ApprovalDecision>
 }
+
+
+/** 人工对一次待审批操作的决定 */
+export type ApprovalDecision = 'approve' | 'reject';
+
+/**
+ * 没有交互层（脚本、测试）时的审批策略。
+ *
+ * 注意这是显式声明的配置，而不是隐藏的默认值：运行时会在首次按策略放行时
+ * 输出一次告警，使「审批没有被人工看过」这件事不会被静默吞掉。
+ */
+export type ApprovalPolicy = 'auto-approve' | 'auto-reject';
 
 
 /**

@@ -7,6 +7,7 @@
     "test:ds": "tsx --env-file=.env src/test/ds.test.ts",
     "cli:build": "vite build",
     "cli:dev":"node --env-file=.env src/cli/dist/main.mjs"
+
   },
   "keywords": [],
   "author": "",

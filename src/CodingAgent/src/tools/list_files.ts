@@ -32,6 +32,8 @@ export class ListFilesTool implements Tool<ListFilesParams> {
         runsShell: false,
         requiresApproval: false,
     };
+    /** maxResults 只限条数；路径与文件名字段仍会让体积失控，故补齐体积上限 */
+    outputBudget = { maxChars: 12000, maxLines: 400 };
 
     getSchema() {
         return {

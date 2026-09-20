@@ -28,6 +28,17 @@ export interface ToolDefinition {
 
 
 /**
+ * 控制流入口的工具名。
+ *
+ * 它们不是可执行工具 —— 运行时不会执行、也不在工具注册表里 —— 而是让模型主动
+ * 触发状态迁移的协议入口。声明与响应翻译由 Provider 负责；运行时的提示词需要引用
+ * 它们，因此名字放在协议契约这一层，避免运行时反向依赖某个具体 Provider。
+ */
+export const REQUEST_REPLAN_TOOL = 'request_replan'
+export const BATCH_TOOL = 'batch'
+
+
+/**
  * @统一抽象响应 
  */
 export interface ModelResponse {

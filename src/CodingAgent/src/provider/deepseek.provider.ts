@@ -1,19 +1,114 @@
-import type { AgentProvider, AgentProviderConfig, ModelResponse, DeepSeekResponse } from '../types/AgentProvider.js'
+import type {
+    AgentProvider,
+    AgentProviderConfig,
+    ModelResponse,
+    DeepSeekResponse,
+    DeepSeekMessage,
+    DeepSeekToolCall,
+    ToolDefinition,
+    DeepseekToolDefinition,
+    JsonSchemaObject,
+} from '../types/AgentProvider.js'
+import { REQUEST_REPLAN_TOOL, BATCH_TOOL } from '../types/AgentProvider.js'
 import type { ChatMessage, AssistantMessage } from '../types/Message.js'
-import type { ModelDecision } from '../types/ReAct.js'
+import type { ModelDecision, Action, BatchAction, PlanStep } from '../types/ReAct.js'
 
 /**
- * @Deepseek
- * 
- * note: 1. body处需要修改，怎么把config的配置映射到deepseek官方文档接口上
- *       2. tools的设计：每次只能调用一个工具，所以响应里的tools怎么处理
+ * @Deepseek Provider
+ *
+ * 职责边界（见 design.md D1）：本类是「运行时内部决策词汇表」与「DeepSeek 原生
+ * tools/tool_calls 协议」之间的翻译层。
+ *   - 请求侧：把 ToolDefinition[] 翻译为原生 tools 声明下发
+ *   - 响应侧：把原生 tool_calls 翻译为 Action / BatchAction / Final
+ * 除此之外不做决策，运行时的循环、预算、审批都不在这里。
  */
+
+/** 未显式配置 baseUrl 时使用的默认端点 */
+export const DEFAULT_DEEPSEEK_BASE_URL = 'https://api.deepseek.com/v1/chat/completions'
+
+/**
+ * 控制流入口。它们不是可执行工具，只用于让模型主动触发状态迁移
+ * （见 design.md D3）：Final 由「本轮没有工具调用」回落产生，模型因此失去在
+ * 完成轮次里携带声明的能力，需要主动表达意图时必须另开工具入口。
+ *
+ * 名字定义在 types/AgentProvider.ts 的协议契约层，这里只是本地引用。
+ */
+
+const PLAN_STEP_SCHEMA = {
+    type: 'object',
+    properties: {
+        id: { type: 'string', description: '步骤的唯一标识' },
+        description: { type: 'string', description: '步骤描述' },
+        status: {
+            type: 'string',
+            enum: ['pending', 'in_progress', 'completed', 'failed'],
+            description: '步骤状态，新步骤一律为 pending',
+        },
+        dependsOn: {
+            type: 'array',
+            items: { type: 'string' },
+            description: '依赖的其他步骤 id',
+        },
+        completionCriteria: { type: 'string', description: '如何判断此步骤完成' },
+    },
+    required: ['description'],
+} as const
+
+const CONTROL_FLOW_TOOLS: ToolDefinition[] = [
+    {
+        name: REQUEST_REPLAN_TOOL,
+        description:
+            '当前计划不可行时，提交一份新的步骤列表以重新规划。仅在你确信原计划无法继续时使用；一般性的试错请直接调用工具。',
+        parameters: {
+            type: 'object',
+            properties: {
+                reason: { type: 'string', description: '为什么需要重新规划' },
+                newPlan: {
+                    type: 'array',
+                    description: '新的步骤列表，按执行顺序排列',
+                    items: PLAN_STEP_SCHEMA,
+                },
+            },
+            required: ['reason', 'newPlan'],
+        },
+    },
+    {
+        name: BATCH_TOOL,
+        description:
+            '一次提交多个相互独立的动作以并发执行。仅当这些动作之间没有依赖关系时使用；有依赖时请逐个调用。',
+        parameters: {
+            type: 'object',
+            properties: {
+                actions: {
+                    type: 'array',
+                    description: '要执行的动作列表',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            tool: { type: 'string', description: '工具名称' },
+                            params: { type: 'object', description: '该工具的参数' },
+                            thought: { type: 'string', description: '为什么调用这个工具' },
+                        },
+                        required: ['tool', 'params'],
+                    },
+                },
+            },
+            required: ['actions'],
+        },
+    },
+]
+
+type ParseArgumentsResult =
+    | { ok: true; value: Record<string, unknown> }
+    | { ok: false; raw: string; reason: string }
+
 export class DeepSeekProvider implements AgentProvider {
     readonly name = 'deepseek'
     public config: AgentProviderConfig
 
     constructor(config: AgentProviderConfig) {
         this.config = {
+            baseUrl: DEFAULT_DEEPSEEK_BASE_URL,
             temperature: 0.2,
             maxTokens: 4096,
             ...config,
@@ -24,17 +119,29 @@ export class DeepSeekProvider implements AgentProvider {
         this.config = { ...this.config, ...config }
     }
 
-    async decide(message: ChatMessage[]): Promise<ModelResponse> {
-        // 将 config 中的参数映射到 DeepSeek API 的字段名
+    /**
+     * 请求模型做一次决策。
+     *
+     * @param messages 对话消息序列
+     * @param tools 当前可执行的工具；为空时不声明任何工具，控制流入口也不声明
+     */
+    async decide(messages: ChatMessage[], tools: ToolDefinition[] = []): Promise<ModelResponse> {
+        // 工具声明只在存在可执行工具时才有意义：没有工具可用时，
+        // 声明「重新规划」「批量动作」入口没有语义。
+        const declaredTools = tools.length > 0 ? [...tools, ...CONTROL_FLOW_TOOLS] : []
+
         const requestBody: Record<string, unknown> = {
             model: this.config.modelName,
-            messages: message.map(msg => this.formatMessage(msg)),
+            messages: messages.map(msg => this.formatMessage(msg)),
         };
         if (this.config.temperature !== undefined) {
             requestBody.temperature = this.config.temperature;
         }
         if (this.config.maxTokens !== undefined) {
             requestBody.max_tokens = this.config.maxTokens;
+        }
+        if (declaredTools.length > 0) {
+            requestBody.tools = declaredTools.map(tool => this.toDeepseekTool(tool));
         }
 
         // 超时控制
@@ -67,56 +174,21 @@ export class DeepSeekProvider implements AgentProvider {
                 throw new Error(`DeepSeek 没有返回有效消息：${JSON.stringify(data)}`);
             }
 
-            const ResponseMessage = choice.message;
-            // 处理 tool_calls 的情况（DeepSeek 支持 function calling）
-            if (ResponseMessage.tool_calls && ResponseMessage.tool_calls.length > 0) {
-                const decisions: ModelDecision[] = ResponseMessage.tool_calls.map(tc => ({
-                    type: 'Action' as const,
-                    tool: tc.function.name,
-                    params: JSON.parse(tc.function.arguments),
-                    thought: ResponseMessage.content || `调用工具: ${tc.function.name}`,
-                }));
-
-                const decision = decisions[0]!;
-
-                return {
-                    decision,
-                    rawContent: JSON.stringify(ResponseMessage),
-                    reasoningContent: ResponseMessage.reasoning_content ?? '',
-                    finishReason: choice.finish_reason!,
-                    modelName: data.model,
-                    usage: {
-                        promptTokens: data.usage.prompt_tokens,
-                        completionTokens: data.usage.completion_tokens,
-                        totalTokens: data.usage.total_tokens
-                    },
-                };
-            }
-
-            const rawContent = choice.message.content!.trim();
-
-            let parsedJson: any;
-            try {
-                const cleanedContent = this.extractJsonFromResponse(rawContent);
-                parsedJson = JSON.parse(cleanedContent);
-            } catch (e) {
-                throw new Error(
-                    `无法解析模型返回的 JSON：${rawContent}\n解析错误：${(e as Error).message}`
-                );
-            }
-
-            const decision = this.validateDecision(parsedJson);
+            const responseMessage = choice.message;
+            const toolCalls = responseMessage.tool_calls ?? [];
 
             return {
-                decision,
-                rawContent,
-                reasoningContent: ResponseMessage.reasoning_content ?? '',
+                decision: toolCalls.length > 0
+                    ? this.translateToolCalls(toolCalls, responseMessage)
+                    : this.toFinalDecision(responseMessage),
+                rawContent: responseMessage.content ?? '',
+                reasoningContent: responseMessage.reasoning_content ?? '',
                 finishReason: choice.finish_reason!,
                 modelName: data.model,
                 usage: {
                     promptTokens: data.usage.prompt_tokens,
                     completionTokens: data.usage.completion_tokens,
-                    totalTokens: data.usage.total_tokens
+                    totalTokens: data.usage.total_tokens,
                 },
             };
 
@@ -130,81 +202,178 @@ export class DeepSeekProvider implements AgentProvider {
         }
     }
 
+    // ------------------------------------------------------------------
+    // 请求侧翻译：ToolDefinition -> 原生 tools
+    // ------------------------------------------------------------------
+
+    private toDeepseekTool(tool: ToolDefinition): DeepseekToolDefinition {
+        return {
+            type: 'function',
+            function: {
+                name: tool.name,
+                description: tool.description,
+                parameters: tool.parameters as unknown as JsonSchemaObject,
+            },
+        };
+    }
+
+    // ------------------------------------------------------------------
+    // 响应侧翻译：原生 tool_calls -> 内部决策 IR
+    // ------------------------------------------------------------------
 
     /**
-     * 从模型响应中提取 JSON 字符串
-     * 处理模型可能在 ```json ... ``` 代码块中返回 JSON 的情况
+     * 翻译规则（见 design.md D2/D3/D4）：
+     *   - 单个 request_replan 调用 -> Replan
+     *   - 单个 batch 调用        -> BatchAction（携带的动作数组）
+     *   - 单个工具调用           -> Action
+     *   - 多个工具调用           -> BatchAction（顺序与响应一致）
      */
-    private extractJsonFromResponse(content: string): string {
-        // 尝试匹配 ```json ... ``` 代码块
-        const jsonBlockMatch = content.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
-        if (jsonBlockMatch) {
-            return jsonBlockMatch[1]!.trim();
+    private translateToolCalls(toolCalls: DeepSeekToolCall[], message: DeepSeekMessage): ModelDecision {
+        if (toolCalls.length === 1) {
+            const only = toolCalls[0]!;
+            const name = only.function.name;
+
+            if (name === REQUEST_REPLAN_TOOL) {
+                const replan = this.toReplanDecision(only, message);
+                if (replan) return replan;
+            }
+            if (name === BATCH_TOOL) {
+                const batch = this.toBatchDecision(only, message);
+                if (batch) return batch;
+            }
         }
 
-        // 尝试匹配 ``` ... ``` 代码块（不带语言标记）
-        const codeBlockMatch = content.match(/```\s*\n?([\s\S]*?)```/);
-        if (codeBlockMatch) {
-            return codeBlockMatch[1]!.trim();
+        const actions = toolCalls.map(tc => this.toAction(tc, message));
+        if (actions.length === 1) {
+            return actions[0]!;
+        }
+        return {
+            type: 'BatchAction',
+            actions: actions.map(action => ({
+                tool: action.tool,
+                params: action.params,
+                thought: action.thought ?? '',
+                ...(action.toolCallId !== undefined ? { toolCallId: action.toolCallId } : {}),
+            })),
+            thought: message.content?.trim() || `并发调用 ${actions.length} 个工具`,
+        };
+    }
+
+    private toAction(tc: DeepSeekToolCall, message: DeepSeekMessage): Action {
+        const thought = message.content?.trim() || `调用工具: ${tc.function.name}`;
+        const parsed = this.parseArguments(tc.function.arguments);
+
+        if (!parsed.ok) {
+            // 参数不可解析时仍产出 Action，但带上失败说明：
+            // 由运行时拒绝执行并记录失败观察，使模型有机会在下一轮修正。
+            return {
+                type: 'Action',
+                tool: tc.function.name,
+                params: {},
+                thought,
+                paramsParseError: `工具调用参数解析失败: ${parsed.raw} (${parsed.reason})`,
+                ...(tc.id ? { toolCallId: tc.id } : {}),
+            };
         }
 
-        // 如果没有代码块，直接返回原内容
-        return content;
+        return {
+            type: 'Action',
+            tool: tc.function.name,
+            params: parsed.value,
+            thought,
+            ...(tc.id ? { toolCallId: tc.id } : {}),
+        };
+    }
+
+    private toReplanDecision(tc: DeepSeekToolCall, message: DeepSeekMessage): ModelDecision | null {
+        const parsed = this.parseArguments(tc.function.arguments);
+        if (!parsed.ok) return null;
+
+        const { reason, newPlan } = parsed.value;
+        if (!Array.isArray(newPlan) || newPlan.length === 0) return null;
+
+        return {
+            type: 'Replan',
+            reason: typeof reason === 'string' && reason ? reason : '未提供重新规划的原因',
+            newPlan: newPlan.map((step, index) => this.toPlanStep(step, index)),
+            thought: message.content?.trim() || '请求重新规划',
+        };
+    }
+
+    private toBatchDecision(tc: DeepSeekToolCall, message: DeepSeekMessage): ModelDecision | null {
+        const parsed = this.parseArguments(tc.function.arguments);
+        if (!parsed.ok) return null;
+
+        const { actions } = parsed.value;
+        if (!Array.isArray(actions)) return null;
+
+        const mapped = actions.flatMap(entry => {
+            if (!entry || typeof entry !== 'object') return [];
+            const sub = entry as Record<string, unknown>;
+            if (typeof sub.tool !== 'string' || !sub.tool) return [];
+            const params = (sub.params && typeof sub.params === 'object' && !Array.isArray(sub.params))
+                ? (sub.params as Record<string, unknown>)
+                : {};
+            return [{
+                tool: sub.tool,
+                params,
+                thought: typeof sub.thought === 'string' ? sub.thought : '',
+            }];
+        });
+
+        if (mapped.length === 0) return null;
+
+        return {
+            type: 'BatchAction',
+            actions: mapped,
+            thought: message.content?.trim() || `批量提交 ${mapped.length} 个动作`,
+        };
+    }
+
+    private toPlanStep(step: unknown, index: number): PlanStep {
+        const s = (step && typeof step === 'object') ? (step as Record<string, unknown>) : {};
+        return {
+            id: typeof s.id === 'string' && s.id ? s.id : `replan-step-${index + 1}`,
+            description: typeof s.description === 'string' ? s.description : '',
+            // 新步骤一律从 pending 开始，不接受模型自报已完成
+            status: 'pending',
+            dependsOn: Array.isArray(s.dependsOn)
+                ? s.dependsOn.filter((d): d is string => typeof d === 'string')
+                : [],
+            completionCriteria: typeof s.completionCriteria === 'string' ? s.completionCriteria : '',
+        };
+    }
+
+    private toFinalDecision(message: DeepSeekMessage): ModelDecision {
+        const answer = message.content?.trim();
+        return {
+            type: 'Final',
+            answer: answer && answer.length > 0 ? answer : '任务已完成',
+            thought: '',
+        };
     }
 
     /**
-     * 验证模型返回的 JSON 是否是合法的 ModelDecision
+     * 解析工具调用参数。失败时不抛错，把原始内容与原因一并交回调用方，
+     * 以便运行时形成可读的失败观察（见 tool-calling-protocol spec）。
      */
-    private validateDecision(json: any): ModelDecision {
-        if (!json.type || !['Action', 'Replan', 'Final'].includes(json.type)) {
-            throw new Error(
-                `无效的决策类型："${json.type}"。必须是 Action、Replan 或 Final 之一。`
-            );
+    private parseArguments(raw: string): ParseArgumentsResult {
+        let parsed: unknown;
+        try {
+            parsed = JSON.parse(raw);
+        } catch (e) {
+            return { ok: false, raw, reason: (e as Error).message };
         }
 
-        switch (json.type) {
-            case 'Action':
-                if (!json.tool || typeof json.tool !== 'string') {
-                    throw new Error('Action 必须有 tool 字段，且类型为字符串');
-                }
-                return {
-                    type: 'Action',
-                    tool: json.tool,
-                    params: json.params || {},
-                    thought: json.thought,
-                };
-
-            case 'Replan':
-                if (!Array.isArray(json.newPlan)) {
-                    throw new Error('Replan 必须有 newPlan 字段，且类型为数组');
-                }
-                return {
-                    type: 'Replan',
-                    reason: json.reason || '未提供重新规划的原因',
-                    newPlan: json.newPlan.map((step: any, index: number) => ({
-                        id: step.id || `replan-step-${index + 1}`,
-                        description: step.description || '',
-                        status: 'pending',
-                        dependsOn: step.dependsOn || [],
-                        completionCriteria: step.completionCriteria || '',
-                    })),
-                    thought: json.thought,
-                };
-
-            case 'Final':
-                return {
-                    type: 'Final',
-                    answer: json.answer || '任务已完成',
-                    thought: json.thought,
-                };
-            default:
-                throw new Error(`未知的决策类型: ${json.type}`)
+        if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+            return { ok: false, raw, reason: '解析结果不是对象' };
         }
+
+        return { ok: true, value: parsed as Record<string, unknown> };
     }
 
-
     /**
-     * 将ChatMessage 格式转换为 DeepSeek API 期望的格式
+     * 将 ChatMessage 格式转换为 DeepSeek API 期望的格式
      */
     private formatMessage(msg: ChatMessage): Record<string, unknown> {
         const formatted: Record<string, unknown> = {
@@ -212,17 +381,23 @@ export class DeepSeekProvider implements AgentProvider {
             content: msg.content,
         };
 
-        // 保留 DeepSeek 特有的 reasoning_content
-        if (msg.role === 'assistant' && 'reasoning_content' in msg) {
+        if (msg.role === 'assistant') {
             const assistantMsg = msg as AssistantMessage;
+
+            // 保留 DeepSeek 特有的 reasoning_content
             if (assistantMsg.reasoning_content) {
                 formatted.reasoning_content = assistantMsg.reasoning_content;
             }
-            // 如果有 tool_calls，也要传递
-            if (assistantMsg.tool_calls) {
+
+            // tool_calls 必须独立于 reasoning_content 传递：
+            // 运行时重建的助手消息不带 reasoning_content，若把这段放进上面
+            // 那个判断里，工具调用会被静默丢掉，请求会被判为
+            // 「content or tool_calls must be set」。
+            if (assistantMsg.tool_calls && assistantMsg.tool_calls.length > 0) {
                 formatted.tool_calls = assistantMsg.tool_calls;
             }
         }
+
         // 如果是 tool 消息，需要传递 tool_call_id
         if (msg.role === 'tool' && 'tool_call_id' in msg) {
             formatted.tool_call_id = (msg as any).tool_call_id;
@@ -231,5 +406,3 @@ export class DeepSeekProvider implements AgentProvider {
         return formatted;
     }
 }
-
-

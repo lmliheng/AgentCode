@@ -74,6 +74,8 @@ export class CreateFileTool implements Tool<CreateFileParams> {
         };
     }
 
+
+
     async execute(params: CreateFileParams, ctx: ToolContext): Promise<ToolResult> {
         try {
             const targetPath = resolve(join(ctx.workspaceRoot, params.path));
@@ -87,6 +89,7 @@ export class CreateFileTool implements Tool<CreateFileParams> {
                     error: `路径 ${params.path} 不在允许的工作区内`,
                 };
             }
+
 
             // 检查文件是否已存在
             try {
