@@ -7,7 +7,8 @@
 // 请只对一次性副本运行，不要直接指向你正在编辑的工作树。
 import { DeepSeekProvider } from '../provider/deepseek.provider.js';
 import { AgentRuntime } from '../runtime/agent.runtime.js';
-import { baseTools } from '../tools/index.js'
+import { ToolRegistry } from '../tools/ToolRegistry.js'
+import { config } from '../config/default.js'
 
 import path from 'node:path';
 import { writeFile } from 'node:fs/promises';
@@ -15,7 +16,7 @@ async function main() {
     const workspacePath = process.argv[2] ?? process.cwd();
 
 
-    const task='运行 TypeScript 类型检查（npx tsc --noEmit），将输出结果写入 run_test/typecheck.md；若类型检查通过，再运行一次 npm run test:ds 并将结果追加到同一文件。'
+    const task = '运行 TypeScript 类型检查（npx tsc --noEmit），将输出结果写入 run_test/typecheck.md；若类型检查通过，再运行一次 npm run test:ds 并将结果追加到同一文件。'
 
     // 刻意不传 baseUrl：使用默认端点，同时覆盖该默认值
     const provider = new DeepSeekProvider({
@@ -25,10 +26,11 @@ async function main() {
 
     // 工具声明由运行时按注册的工具集合生成并随请求下发；
     // 调用方不再需要（也无法）手写工具格式。
-    const runtime = new AgentRuntime(provider, [...baseTools()], {
+    const runtime = new AgentRuntime(provider, ToolRegistry.createDefault(config.tools.eager).getAllTools(), {
         workspacePath,
         maxIterations: 100,
         timeoutMs: 60000,
+        eagerTools: config.tools.eager,
         // requestApproval
     });
 

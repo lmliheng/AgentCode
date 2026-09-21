@@ -18,6 +18,8 @@ export interface Tool<T extends ToolParams = ToolParams> {
     readonly description: string;
     //权限
     readonly permissions: ToolPermissions;
+    //是否常驻  shouldDefer / alwaysLoad
+    // readonly deferred:boolean; 靠常驻白名单就行
     /**
      * 可选的输出预算声明。
      *
@@ -37,7 +39,10 @@ export interface Tool<T extends ToolParams = ToolParams> {
      * 获取工具的 JSON Schema，用于模型调用时的参数验证
      */
     getSchema(): Record<string, unknown>;
+
+
 }
+
 
 
 // 

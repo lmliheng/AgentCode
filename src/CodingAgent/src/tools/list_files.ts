@@ -31,7 +31,7 @@ interface FileEntry {
 
 export class ListFilesTool implements Tool<ListFilesParams> {
     name = 'list_files';
-    description = `列出工作区中的文件和目录，返回扁平列表；要看目录层级用 read_directory，两者不要同时调用。
+    description = `列出工作区中的文件和目录，返回扁平列表；要看目录层级用 read_directory（不在当前工具列表里，需先经 tool_search 查询），两者不要同时调用。
 
 - pattern 是文件名前缀匹配，不是 glob：传 "*.ts" 会一条都匹配不到，应传 "test_" 这类前缀。
 - recursive 时会自动跳过 node_modules/.git/dist/.next/build/coverage。
