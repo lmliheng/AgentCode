@@ -1,4 +1,4 @@
-### AgentCode
+### AgentCode - snapshot
 
 后续的工作：
 1. 走完RAG完整模块并开放HTTP检索
