@@ -12,12 +12,10 @@ interface DeleteFileParams extends ToolParams {
 
 export class DeleteFileTool implements Tool<DeleteFileParams> {
     name = 'delete_file';
-    description = `删除文件或目录。删除后无法通过本工具恢复。
+    description = `删除文件或目录，删除后无法通过本工具恢复。
 
-- 目录非空时必须传 recursive: true，否则删除失败；recursive 会连同子目录内容一起删除。
-- path 是工作区内的相对路径。
-- force: true 表示跳过人工确认直接删除，默认 false，只在已经明确要删时使用。
-- 一次只能删一个路径，不支持通配符。`;
+- 一次只能删一个路径，不支持通配符。
+- force 会跳过人工确认直接删除，只在已经明确要删时使用。`;
 
     permissions = {
         readsFiles: false,

@@ -19,13 +19,13 @@ export interface ReadFileParams extends ToolParams {
 
 export class ReadFileTool implements Tool<ReadFileParams> {
     readonly name = 'read_file';
-    readonly description = `读取文件内容。默认返回从第 1 行起的最多 200 行，且不超过 maxChars。
+    readonly description = `读取文件内容。
 
 - 修改文件前先用本工具确认当前内容，不要凭记忆构造 old_string。
+- 要查某个字符串出现在哪些文件里，用 search_code，不要逐个文件读。
 - path 是工作区内的相对路径；不要传绝对路径，传了会被当成相对路径拼在工作区根之后。
 - 返回的 totalLines 是文件总行数；内容被截断时用 start/end 指定行区间分次读取。
-- maxChars 上限 50000，但整体输出预算更小，放宽后仍可能被截断成「首尾保留」的片段。
-- 要查某个字符串出现在哪些文件里，用 search_code，不要逐个文件读。`;
+- maxChars 可以调大，但整体输出预算更小，放宽后仍可能被截断成「首尾保留」的片段。`;
     readonly permissions = {
         readsFiles: true,
         writesFiles: false,

@@ -16,17 +16,17 @@ interface GitOperationParams extends ToolParams {
 
 export class GitOperationTool implements Tool<GitOperationParams> {
     name = 'git_operation';
-    description = `执行 Git 操作。各 operation 的含义与必填参数：
+    description = `执行 Git 操作。各 operation 的含义：
 
-- status：查看工作区改动，无其他参数。
+- status：查看工作区改动。
 - diff：查看尚未暂存的改动，可用 paths 限定文件。
-- log：查看最近提交，limit 控制条数（默认 10）。
-- add：暂存改动，paths 指定文件。不传 paths 等同于 git add .，会暂存工作区全部改动，请谨慎。
-- commit：提交已暂存的内容，必须提供 message。本工具不会自动 add，先确认改动已暂存。
-- branch：新建分支，必须提供 branch。这不是查看分支列表。
-- checkout：切换到已有分支，必须提供 branch。
+- log：查看最近提交，limit 控制条数。只返回 7 位短 hash，拿不到完整 hash，也不支持自定义格式。
+- add：暂存改动；不传 paths 等同于 git add .，会暂存工作区全部改动，请谨慎。
+- commit：提交已暂存的内容。本工具不会自动 add，先确认改动已暂存。
+- branch：新建分支，这不是查看分支列表。
+- checkout：切换到已有分支。
 
-其他限制：只有上述 7 种操作（没有 push/pull/stash/merge）；工作区不是 Git 仓库时会直接失败；判断成败请看 success 与 error 字段。`;
+只有上述 7 种操作（没有 push/pull/stash/merge）；工作区不是 Git 仓库时会直接失败。`;
 
     permissions = {
         readsFiles: true,

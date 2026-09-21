@@ -1,5 +1,10 @@
 // src/tools/read_directory.ts
 
+
+/**
+ * 
+ * 需要忽略node_modules
+ */
 import { readdirSync, statSync } from 'fs';
 import { join, relative, resolve } from 'path';
 import type{ Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
@@ -21,12 +26,10 @@ interface DirEntry {
 
 export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
     name = 'read_directory';
-    description = `读取目录结构，返回树形层级信息。
+    description = `读取目录结构，返回树形层级信息；需要按文件名筛选或要扁平列表时用 list_files，两者不要同时调用。
 
-- 需要按文件名筛选或要扁平列表时用 list_files。
-- maxDepth 默认 1，即只展开当前层；要更深层级需显式传更大的值。
-- 默认隐藏以 . 开头的条目，需要时传 showHidden: true。
-- maxItems 默认 500，超出部分不会出现在结果里。
+- 本工具不会跳过 node_modules，且 maxItems 是全树累计计数：从工作区根展开深层目录容易被 node_modules 占满配额，建议把 path 指到具体子目录。
+- 超出 maxItems 的条目不会出现在结果里。
 - 返回项中的 path 是相对工作区根的路径，可直接作为其他工具的 path 参数。`;
     
     permissions = {

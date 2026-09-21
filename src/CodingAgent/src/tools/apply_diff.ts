@@ -13,12 +13,11 @@ interface ApplyDiffParams extends ToolParams {
 
 export class ApplyDiffTool implements Tool<ApplyDiffParams> {
     name = 'apply_diff';
-    description = `对文件应用字符串替换。与 edit_file 功能重叠，改动文件请优先用 edit_file。
+    description = `对文件应用字符串替换；与 edit_file 功能重叠，改动文件请优先用 edit_file。
 
-- 本工具不接受 unified diff / patch 格式的输入，参数是 old_string/new_string 这样的纯字符串替换。
-- old_string 默认要求唯一匹配，expected_count 可放宽；匹配次数不符时失败并回报实际次数。
-- new_string 走的是 String.replace 的替换模式：其中的 $&、$1、$$ 会被特殊解释，含这些片段的代码请改用 edit_file。
-- 调用前先用 read_file 确认待替换的内容。`;
+- 不接受 unified diff / patch 格式的输入，参数是 old_string/new_string 纯字符串替换。
+- 匹配次数不符时失败并回报实际匹配次数；调用前先用 read_file 确认待替换的内容。
+- new_string 里的 $&、$1 会被当作替换模式解释；含这些片段的代码请改用 edit_file。`;
     
     permissions = {
         readsFiles: true,

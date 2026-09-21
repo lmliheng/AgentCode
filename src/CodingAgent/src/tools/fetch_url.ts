@@ -11,13 +11,12 @@ interface FetchUrlParams extends ToolParams {
 
 export class FetchUrlTool implements Tool<FetchUrlParams> {
     name = 'fetch_url';
-    description = `抓取远程 URL 的内容，仅支持 http/https 的 GET 与 HEAD。
+    description = `抓取远程 URL 的文本内容。
 
 - 只返回文本类响应（text/json/javascript/xml/yaml）；其他类型的响应体会是 "[Binary content: ...]" 占位符，拿不到实际内容。
+- 需要登录态、需要浏览器渲染、或需要 POST 的场景，本工具取不到。
 - 响应体超过 512KB 会先被截断；整体输出预算更小，超长页面可能只保留首尾片段。
-- 返回含 status、contentType、headers 与 body。请先看 status 判断成败，再使用 body。
-- timeout 默认 15000ms，允许范围 1000-60000。
-- 需要登录态、需要浏览器渲染、或需要 POST 的场景，本工具取不到。`;
+- 返回含 status、contentType、headers 与 body。请先看 status 判断成败，再使用 body。`;
 
     permissions = {
         readsFiles: false,

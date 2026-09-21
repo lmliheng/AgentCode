@@ -17,13 +17,10 @@ export class EditFileTool implements Tool<EditFileParams> {
     readonly description = `修改文件内容：把文件中的 old_string 替换为 new_string。
 
 - 调用前必须先用 read_file 读取该文件，保证 old_string 与文件内容逐字一致（含缩进与空白）。
-- old_string 默认要求全文件唯一匹配，匹配不到或次数不符都会失败并回报实际匹配次数。
-- 确实要改多处时，用 expected_count 说明期望次数。
-- old_string 要带足上下文（完整的一行或一整块）；只给 "}" 这类短片段容易匹配到别处。
-- new_string 按字面量写入，其中的 $ 不做任何特殊解释。
+- old_string 要带足上下文（完整的一行或一整块）；只给 "}" 这类短片段容易匹配到别处，匹配不到或次数不符都会失败并回报实际匹配次数。
+- 需要先看改动效果而不写盘时用 dryRun。
 - 只做局部改动：整体重写文件用 create_file 并传 overwrite: true，移动用 move_file，删除用 delete_file。
-- 不要在同样的事情上改用 apply_diff：两者参数相同，但 apply_diff 会把 new_string 里的 $& / $1 当作替换模式解释。
-- dryRun: true 只返回改动预览，不写盘。`;
+- 参数与 apply_diff 相同，但本工具把 new_string 按字面量写入；不要在两者之间混用。`;
     readonly permissions = {
         readsFiles: true,
         writesFiles: true,

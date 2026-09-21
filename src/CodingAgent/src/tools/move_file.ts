@@ -14,10 +14,7 @@ export class MoveFileTool implements Tool<MoveFileParams> {
     name = 'move_file';
     description = `移动或重命名文件/目录。
 
-- 目标父目录不存在会自动创建。
-- 目标已存在时直接失败；确认要覆盖时传 overwrite: true。
-- source 与 destination 都是工作区内的相对路径，且都必须在工作区内，不能跨工作区移动。
-- 两者相同时会被拒绝。`;
+- source 与 destination 都必须在工作区内，不能跨工作区移动；两者相同时会被拒绝。`;
 
     permissions = {
         readsFiles: false,

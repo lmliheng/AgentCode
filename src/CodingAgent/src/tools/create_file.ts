@@ -13,10 +13,9 @@ export class CreateFileTool implements Tool<CreateFileParams> {
     name = 'create_file';
     description = `在工作区中创建新文件，父目录不存在会自动创建。
 
-- 只用于新建文件。目标已存在时直接失败；确认要覆盖时必须显式传 overwrite: true。
-- 修改已有文件用 edit_file，不要用本工具整体重写。
-- path 是工作区内的相对路径，不接受绝对路径，也不能包含 ..。
-- content 会整文件写入；覆盖场景下注意不要丢掉原有内容。`;
+- 只用于新建文件；修改已有文件用 edit_file，不要用本工具整体重写。
+- content 是整文件内容：覆盖已有文件时会丢掉原有内容，先 read_file 确认。
+- path 必须是工作区内的相对路径，不接受绝对路径，也不能包含 ..。`;
 
     permissions = {
         readsFiles: false,

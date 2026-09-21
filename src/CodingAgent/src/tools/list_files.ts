@@ -5,6 +5,10 @@ import { join, relative, resolve } from 'path';
 import type{ Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
 
 
+/**
+ * 
+ * 忽略node_modules
+ */
 
 interface ListFilesParams extends ToolParams {
     path?: string;             // 起始路径，默认工作区根目录
@@ -27,14 +31,11 @@ interface FileEntry {
 
 export class ListFilesTool implements Tool<ListFilesParams> {
     name = 'list_files';
-    description = `列出工作区中的文件和目录，返回扁平列表。
+    description = `列出工作区中的文件和目录，返回扁平列表；要看目录层级用 read_directory，两者不要同时调用。
 
-- 要看某一层的目录结构请用 read_directory（返回树形结果）；本工具适合按文件名筛选。
 - pattern 是文件名前缀匹配，不是 glob：传 "*.ts" 会一条都匹配不到，应传 "test_" 这类前缀。
-- 默认只列当前层；递归子目录需 recursive: true，可用 depth 限制层数。
 - recursive 时会自动跳过 node_modules/.git/dist/.next/build/coverage。
-- maxResults 默认 200，超出会截断；返回的 total 是实际条数，truncated 表示是否被截断。
-- 返回项的 path 是相对工作区根的路径，可直接作为其他工具的 path 参数。`;
+- 返回的 total 是实际条数，truncated 表示是否被截断；返回项的 path 是相对工作区根的路径，可直接作为其他工具的 path 参数。`;
     
     permissions = {
         readsFiles: true,

@@ -29,12 +29,8 @@ export class SearchCodeTool implements Tool<SearchCodeParams> {
     name = 'search_code';
     description = `按行搜索工作区内的文件内容，返回匹配的文件、行号与整行内容。
 
-- pattern 始终按正则表达式解释，没有纯文本模式。要搜索括号、点号、加号等正则元字符，必须先转义，否则会搜索失败。
-- include 按文件扩展名过滤，必须小写且带点，如 [".ts"]；传 [".TS"] 会一条都匹配不到。
-- exclude 匹配的是条目名（目录或文件），不是路径前缀：传 "node_modules" 有效，传 "src/lib" 无效。默认排除 node_modules/.git/dist。
-- 每行最多返回一条匹配；maxResults 默认 50，超出会截断，truncated 表示是否被截断。
-- 需要看匹配处的上下文时传 contextLines。
-- 只想读某个已知文件的内容请用 read_file，不要用本工具。`;
+- 只想读某个已知文件的内容请用 read_file，不要用本工具。
+- 每行最多返回一条匹配；truncated 表示结果是否被截断。`;
 
     permissions = {
         readsFiles: true,
