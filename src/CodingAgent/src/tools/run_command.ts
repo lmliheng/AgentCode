@@ -1,5 +1,5 @@
 
-import { execSync, type ExecSyncOptions, spawn } from 'child_process';
+import { execSync, type ExecSyncOptions, spawn, type ChildProcess } from 'child_process';
 import { join } from 'path';
 import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
 
@@ -12,7 +12,14 @@ interface RunCommandParams extends ToolParams {
 
 export class RunCommandTool implements Tool<RunCommandParams> {
     name = 'run_command';
-    description = '在工作区中执行 shell 命令，用于运行测试、编译、格式化等操作';
+    description = `在工作区中执行 shell 命令，用于运行测试、编译、格式化、安装依赖等。
+
+- 命令是阻塞执行的，需要交互输入（stdin）的命令无法使用。
+- 请优先执行项目声明的脚本（如 npm test），不要自行拼装等价的底层命令。
+- 返回 exitCode、stdout、stderr。判断成败看 exitCode，不要只凭输出里出现成功字样。
+- timeout 默认 60000ms，允许 1000-300000；超时会杀掉整条命令进程树，并返回已经捕获到的输出。
+- cwd 为工作区内相对路径，不传则在根目录执行。
+- 输出过长会被截断；需要长期驻留的服务类命令不适合用本工具。`;
 
     permissions = {
         readsFiles: false,
@@ -30,10 +37,10 @@ export class RunCommandTool implements Tool<RunCommandParams> {
         return {
             type: 'object',
             properties: {
-                command: { type: 'string', description: '要执行的命令' },
-                cwd: { type: 'string', description: '工作目录，默认为工作区根目录' },
-                timeout: { type: 'number', description: '超时时间（毫秒），默认 60000' },
-                env: { type: 'object', description: '额外的环境变量' },
+                command: { type: 'string', description: '要执行的命令，按 shell 语法解释' },
+                cwd: { type: 'string', description: '工作目录（工作区内相对路径，默认为工作区根目录）' },
+                timeout: { type: 'number', description: '超时时间（毫秒，默认 60000）；超时后会杀掉整条命令进程树', minimum: 1000, maximum: 300000 },
+                env: { type: 'object', description: '附加环境变量，与当前进程环境合并' },
             },
             required: ['command'],
         };
@@ -129,38 +136,61 @@ export class RunCommandTool implements Tool<RunCommandParams> {
                 ? join(ctx.workspaceRoot, params.cwd)
                 : ctx.workspaceRoot;
 
+            const timeoutMs = params.timeout ?? 60000;
+
             const child = spawn(params.command, [], {
                 shell: true,
                 cwd: workDir,
+                // POSIX 下需要自成进程组，才能整组杀掉；Windows 靠 taskkill /T，不能 detached
+                detached: process.platform !== 'win32',
                 env: {
                     ...process.env,
                     ...params.env,
                 },
             });
 
-            // 监听取消信号
-            ctx.signal?.addEventListener('abort', () => {
-                child.kill();
-                resolve({
+            let stdout = '';
+            let stderr = '';
+            let settled = false;
+            let timeoutId: ReturnType<typeof setTimeout> | undefined;
+
+            const settle = (result: ToolResult) => {
+                if (settled) return;
+                settled = true;
+                if (timeoutId !== undefined) clearTimeout(timeoutId);
+                resolve(result);
+            };
+
+            // 超时与取消必须走同一个 kill 路径：两条路径都只允许生效一次，
+            // 且都要把已捕获的输出带回去（否则超时后的报错会丢掉现场）。
+            const killWithError = (error: string) => {
+                if (settled) return;
+                killProcessTree(child);
+                settle({
                     success: false,
                     data: {
                         command: params.command,
                         exitCode: -1,
-                        stdout: '',
-                        stderr: '',
+                        stdout,
+                        stderr,
                     },
-                    error: '命令执行超时或被取消',
+                    error,
                 });
-            });
+            };
 
-            let stdout = '';
-            let stderr = '';
+            timeoutId = setTimeout(
+                () => killWithError(`命令超时（${timeoutMs}ms）`),
+                timeoutMs
+            );
+
+            // 监听取消信号
+            ctx.signal?.addEventListener('abort', () => killWithError('命令执行被取消'));
 
             child.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
             child.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
 
             child.on('close', (code) => {
-                resolve({
+                settle({
                     success: code === 0,
                     data: {
                         command: params.command,
@@ -173,7 +203,7 @@ export class RunCommandTool implements Tool<RunCommandParams> {
             });
 
             child.on('error', (err) => {
-                resolve({
+                settle({
                     success: false,
                     data: {
                         command: params.command,
@@ -185,5 +215,34 @@ export class RunCommandTool implements Tool<RunCommandParams> {
                 });
             });
         });
+    }
+}
+
+/**
+ * 杀掉整棵进程树。
+ *
+ * spawn 开了 shell: true，命令实际是 shell 的子进程：只 kill shell 的话，
+ * 真正在跑的命令会变成孤儿继续跑下去（Windows 上还会继续占住工作区目录）。
+ */
+function killProcessTree(child: ChildProcess): void {
+    if (child.pid === undefined) return;
+
+    if (process.platform === 'win32') {
+        try {
+            execSync(`taskkill /pid ${child.pid} /T /F`, { stdio: 'ignore' });
+        } catch {
+            // 进程可能已经自己退出了
+        }
+        return;
+    }
+
+    try {
+        process.kill(-child.pid, 'SIGKILL');
+    } catch {
+        try {
+            child.kill('SIGKILL');
+        } catch {
+            // 进程可能已经自己退出了
+        }
     }
 }

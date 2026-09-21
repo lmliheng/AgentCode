@@ -17,7 +17,7 @@ import { MoveFileTool } from '../../tools/move_file.js';
 import { ApplyDiffTool } from '../../tools/apply_diff.js';
 import { GitOperationTool } from '../../tools/git_operation.js';
 import { FetchUrlTool } from '../../tools/fetch_url.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
 import type { Tool, ToolParams, ToolContext, ToolResult } from '../../types/Tool.js';
 import type { AgentProvider, ToolDefinition, AgentProviderConfig, ModelResponse } from '../../types/AgentProvider.js';
 import type { ChatMessage } from '../../types/Message.js';
@@ -41,7 +41,8 @@ class MockProvider implements AgentProvider {
     private currentIndex = 0
 
     constructor(decisions: ModelDecision[]) {
-        this.decisions = decisions
+        // 脚本第一位留给规划轮：运行时进入循环前会先请求一次初始计划
+        this.decisions = [initialPlanDecision(), ...decisions]
     }
 
     updateConfig(config: Partial<AgentProviderConfig>): void {

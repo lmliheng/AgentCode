@@ -11,7 +11,13 @@ interface FetchUrlParams extends ToolParams {
 
 export class FetchUrlTool implements Tool<FetchUrlParams> {
     name = 'fetch_url';
-    description = '获取远程 URL 内容，支持 GET/HEAD 请求';
+    description = `抓取远程 URL 的内容，仅支持 http/https 的 GET 与 HEAD。
+
+- 只返回文本类响应（text/json/javascript/xml/yaml）；其他类型的响应体会是 "[Binary content: ...]" 占位符，拿不到实际内容。
+- 响应体超过 512KB 会先被截断；整体输出预算更小，超长页面可能只保留首尾片段。
+- 返回含 status、contentType、headers 与 body。请先看 status 判断成败，再使用 body。
+- timeout 默认 15000ms，允许范围 1000-60000。
+- 需要登录态、需要浏览器渲染、或需要 POST 的场景，本工具取不到。`;
 
     permissions = {
         readsFiles: false,
@@ -29,10 +35,10 @@ export class FetchUrlTool implements Tool<FetchUrlParams> {
         return {
             type: 'object',
             properties: {
-                url: { type: 'string', description: '请求的 URL' },
-                method: { type: 'string', enum: ['GET', 'HEAD'], description: 'HTTP 方法' },
-                timeout: { type: 'number', description: '超时时间（毫秒）' },
-                headers: { type: 'object', description: '自定义请求头' },
+                url: { type: 'string', description: '请求的 URL，必须以 http:// 或 https:// 开头' },
+                method: { type: 'string', enum: ['GET', 'HEAD'], description: 'HTTP 方法（默认 GET）' },
+                timeout: { type: 'number', description: '超时时间（毫秒，默认 15000）', minimum: 1000, maximum: 60000 },
+                headers: { type: 'object', description: '附加请求头，如 {"Authorization": "Bearer ..."}' },
             },
             required: ['url'],
         };

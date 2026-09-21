@@ -4,10 +4,13 @@
   "description": "coding Agent 对标 cloude code 的Agent应用",
   "main": "index.js",
   "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "verify": "npm run typecheck && npm test",
     "test:ds": "tsx --env-file=.env src/test/ds.test.ts",
     "cli:build": "vite build",
-    "cli:dev":"node --env-file=.env src/cli/dist/main.mjs"
-
+    "cli:dev": "node --env-file=.env src/cli/dist/main.mjs"
   },
   "keywords": [],
   "author": "",
@@ -17,7 +20,9 @@
     "@types/node": "^22.20.2",
     "@vitejs/plugin-vue": "^6.0.9",
     "@vue-tui/vite": "^0.3.1",
-    "vite": "^8.3.0"
+    "tsx": "^4.23.13",
+    "typescript": "^7.0.2",
+    "vite": "8.2.1"
   },
   "dependencies": {
     "@inquirer/prompts": "^8.7.2",

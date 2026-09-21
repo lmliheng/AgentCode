@@ -19,7 +19,13 @@ export interface ReadFileParams extends ToolParams {
 
 export class ReadFileTool implements Tool<ReadFileParams> {
     readonly name = 'read_file';
-    readonly description = '读取文件内容。参数 path 必须是工作区内相对路径；大文件自动截断。';
+    readonly description = `读取文件内容。默认返回从第 1 行起的最多 200 行，且不超过 maxChars。
+
+- 修改文件前先用本工具确认当前内容，不要凭记忆构造 old_string。
+- path 是工作区内的相对路径；不要传绝对路径，传了会被当成相对路径拼在工作区根之后。
+- 返回的 totalLines 是文件总行数；内容被截断时用 start/end 指定行区间分次读取。
+- maxChars 上限 50000，但整体输出预算更小，放宽后仍可能被截断成「首尾保留」的片段。
+- 要查某个字符串出现在哪些文件里，用 search_code，不要逐个文件读。`;
     readonly permissions = {
         readsFiles: true,
         writesFiles: false,
@@ -96,8 +102,8 @@ export class ReadFileTool implements Tool<ReadFileParams> {
             type: 'object',
             properties: {
                 path: { type: 'string', description: '文件路径，相对于工作区根目录' },
-                start: { type: 'integer', description: '起始行号（从 1 开始，可选）', minimum: 1 },
-                end: { type: 'integer', description: '结束行号（可选）', minimum: 1 },
+                start: { type: 'integer', description: '起始行号，从 1 开始（默认 1）', minimum: 1 },
+                end: { type: 'integer', description: '结束行号，含该行（默认 start + 199）', minimum: 1 },
                 maxChars: { type: 'integer', description: '限制返回的最大字符数（默认 8000）', minimum: 1, maximum: 50000 },
             },
             required: ['path'],

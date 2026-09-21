@@ -3,7 +3,7 @@ import { AgentRuntime } from '../../runtime/agent.runtime.js';
 import { ReadFileTool } from '../../tools/read_file.js';
 import { EditFileTool } from '../../tools/edit_file.js';
 import { SearchCodeTool } from '../../tools/search_code.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanResponse } from '../setup.js';
 import type { AgentProvider, ModelResponse, AgentProviderConfig } from '../../types/AgentProvider.js';
 import type { ChatMessage } from '../../types/Message.js';
 import type { ModelDecision } from '../../types/ReAct.js';
@@ -25,7 +25,8 @@ class MockProvider implements AgentProvider {
     private callIndex = 0;
 
     constructor(responses: ModelResponse[]) {
-        this.responses = responses;
+        // 队列第一位留给规划轮：运行时进入循环前会先请求一次初始计划
+        this.responses = [initialPlanResponse(), ...responses];
     }
 
     async decide(messages: ChatMessage[], tools: any[]): Promise<ModelResponse> {

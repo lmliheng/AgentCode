@@ -12,7 +12,12 @@ interface DeleteFileParams extends ToolParams {
 
 export class DeleteFileTool implements Tool<DeleteFileParams> {
     name = 'delete_file';
-    description = '删除文件或空目录，支持递归删除和强制模式';
+    description = `删除文件或目录。删除后无法通过本工具恢复。
+
+- 目录非空时必须传 recursive: true，否则删除失败；recursive 会连同子目录内容一起删除。
+- path 是工作区内的相对路径。
+- force: true 表示跳过人工确认直接删除，默认 false，只在已经明确要删时使用。
+- 一次只能删一个路径，不支持通配符。`;
 
     permissions = {
         readsFiles: false,
@@ -25,9 +30,9 @@ export class DeleteFileTool implements Tool<DeleteFileParams> {
         return {
             type: 'object',
             properties: {
-                path: { type: 'string', description: '要删除的文件或目录路径' },
-                force: { type: 'boolean', description: '是否强制删除（跳过确认）' },
-                recursive: { type: 'boolean', description: '是否递归删除目录' },
+                path: { type: 'string', description: '要删除的文件或目录路径（工作区内相对路径）' },
+                force: { type: 'boolean', description: '跳过人工确认（默认 false）' },
+                recursive: { type: 'boolean', description: '递归删除目录及其内容（默认 false，此时非空目录会删除失败）' },
             },
             required: ['path'],
         };

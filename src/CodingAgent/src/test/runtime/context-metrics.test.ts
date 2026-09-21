@@ -9,7 +9,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
 import { ReadFileTool } from '../../tools/read_file.js';
 import { DERIVED_CONTEXT_TOKEN_BUDGET, DEFAULT_OUTPUT_BUDGET } from '../../output-budget.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
 import type { AgentProvider, AgentProviderConfig, ModelResponse, TokenUsage } from '../../types/AgentProvider.js';
 import type { AgentRuntimeConfig } from '../../types/Runtime.js';
 import type { ChatMessage } from '../../types/Message.js';
@@ -52,6 +52,11 @@ class FailingProvider implements AgentProvider {
 /** 两轮读取后完成 —— 多轮脚本，用于度量与行为对比 */
 function readTwiceScript(): Array<{ decision: ModelDecision; usage?: TokenUsage }> {
     return [
+        {
+            // 规划轮：同样是真实的模型调用，用量计入累计消耗
+            decision: initialPlanDecision(),
+            usage: { promptTokens: 5, completionTokens: 2, totalTokens: 7 },
+        },
         {
             decision: { type: 'Action', tool: 'read_file', params: { path: 'src/a.ts' }, thought: '第一次' },
             usage: { promptTokens: 10, completionTokens: 5, totalTokens: 15 },
@@ -96,9 +101,9 @@ describe('上下文度量', () => {
         expect(state.contextSize.tokens).toBe(30);
         expect(state.contextSize.source).toBe('measured');
 
-        // 累计消耗 = 各轮之和
-        expect(state.tokenUsage.promptTokens).toBe(60);
-        expect(state.tokenUsage.totalTokens).toBe(15 + 27 + 33);
+        // 累计消耗 = 各轮之和（含进入循环前的那次规划调用）
+        expect(state.tokenUsage.promptTokens).toBe(65);
+        expect(state.tokenUsage.totalTokens).toBe(7 + 15 + 27 + 33);
 
         // 两个口径必须不同，不能是同一个数字
         expect(state.contextSize.tokens).not.toBe(state.tokenUsage.promptTokens);

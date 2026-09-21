@@ -21,7 +21,13 @@ interface DirEntry {
 
 export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
     name = 'read_directory';
-    description = '读取目录结构，返回树形层级信息';
+    description = `读取目录结构，返回树形层级信息。
+
+- 需要按文件名筛选或要扁平列表时用 list_files。
+- maxDepth 默认 1，即只展开当前层；要更深层级需显式传更大的值。
+- 默认隐藏以 . 开头的条目，需要时传 showHidden: true。
+- maxItems 默认 500，超出部分不会出现在结果里。
+- 返回项中的 path 是相对工作区根的路径，可直接作为其他工具的 path 参数。`;
     
     permissions = {
         readsFiles: true,
@@ -39,10 +45,10 @@ export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
         return {
             type: 'object',
             properties: {
-                path: { type: 'string', description: '目录路径，默认为工作区根目录' },
-                maxDepth: { type: 'number', description: '最大深度，默认 1' },
-                showHidden: { type: 'boolean', description: '是否显示隐藏文件' },
-                maxItems: { type: 'number', description: '最大条目数' },
+                path: { type: 'string', description: '目录路径（工作区内相对路径，默认为工作区根目录）' },
+                maxDepth: { type: 'number', description: '最大展开深度，默认 1（仅当前层）', minimum: 1 },
+                showHidden: { type: 'boolean', description: '是否包含以 . 开头的条目（默认 false）' },
+                maxItems: { type: 'number', description: '最大条目数（默认 500）', minimum: 1 },
             },
         };
     }

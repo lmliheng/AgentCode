@@ -27,7 +27,14 @@ interface MatchResult {
 
 export class SearchCodeTool implements Tool<SearchCodeParams> {
     name = 'search_code';
-    description = '在工作区中搜索代码，支持正则表达式和文本匹配';
+    description = `按行搜索工作区内的文件内容，返回匹配的文件、行号与整行内容。
+
+- pattern 始终按正则表达式解释，没有纯文本模式。要搜索括号、点号、加号等正则元字符，必须先转义，否则会搜索失败。
+- include 按文件扩展名过滤，必须小写且带点，如 [".ts"]；传 [".TS"] 会一条都匹配不到。
+- exclude 匹配的是条目名（目录或文件），不是路径前缀：传 "node_modules" 有效，传 "src/lib" 无效。默认排除 node_modules/.git/dist。
+- 每行最多返回一条匹配；maxResults 默认 50，超出会截断，truncated 表示是否被截断。
+- 需要看匹配处的上下文时传 contextLines。
+- 只想读某个已知文件的内容请用 read_file，不要用本工具。`;
 
     permissions = {
         readsFiles: true,
@@ -42,13 +49,13 @@ export class SearchCodeTool implements Tool<SearchCodeParams> {
         return {
             type: 'object',
             properties: {
-                pattern: { type: 'string', description: '搜索模式（支持正则表达式）' },
-                path: { type: 'string', description: '搜索路径，默认为工作区根目录' },
-                include: { type: 'array', items: { type: 'string' }, description: '文件扩展名过滤，如 [".ts", ".js"]' },
-                exclude: { type: 'array', items: { type: 'string' }, description: '排除的目录，如 ["node_modules"]' },
-                maxResults: { type: 'number', description: '最大返回结果数，默认 50' },
-                caseSensitive: { type: 'boolean', description: '是否区分大小写' },
-                contextLines: { type: 'number', description: '上下文行数，默认 0' },
+                pattern: { type: 'string', description: '正则表达式，不是纯文本；元字符需转义，非法正则会直接失败' },
+                path: { type: 'string', description: '搜索起始路径（工作区内相对路径，默认为工作区根目录）' },
+                include: { type: 'array', items: { type: 'string' }, description: '文件扩展名白名单，须小写带点，如 [".ts", ".js"]（默认不过滤）' },
+                exclude: { type: 'array', items: { type: 'string' }, description: '按条目名排除的目录或文件，不是路径前缀，如 ["node_modules"]（默认排除 node_modules/.git/dist）' },
+                maxResults: { type: 'number', description: '最大返回条数（默认 50）', minimum: 1 },
+                caseSensitive: { type: 'boolean', description: '是否区分大小写（默认 false）' },
+                contextLines: { type: 'number', description: '每条匹配附带的前后文行数（默认 0）', minimum: 0 },
             },
             required: ['pattern'],
         };

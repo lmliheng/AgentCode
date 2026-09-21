@@ -33,7 +33,6 @@ export const DEFAULT_DEEPSEEK_BASE_URL = 'https://api.deepseek.com/v1/chat/compl
  *
  * 名字定义在 types/AgentProvider.ts 的协议契约层，这里只是本地引用。
  */
-
 const PLAN_STEP_SCHEMA = {
     type: 'object',
     properties: {

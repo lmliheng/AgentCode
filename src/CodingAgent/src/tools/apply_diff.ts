@@ -13,7 +13,12 @@ interface ApplyDiffParams extends ToolParams {
 
 export class ApplyDiffTool implements Tool<ApplyDiffParams> {
     name = 'apply_diff';
-    description = '对文件应用精确的字符串替换，类似于 edit_file 但更轻量';
+    description = `对文件应用字符串替换。与 edit_file 功能重叠，改动文件请优先用 edit_file。
+
+- 本工具不接受 unified diff / patch 格式的输入，参数是 old_string/new_string 这样的纯字符串替换。
+- old_string 默认要求唯一匹配，expected_count 可放宽；匹配次数不符时失败并回报实际次数。
+- new_string 走的是 String.replace 的替换模式：其中的 $&、$1、$$ 会被特殊解释，含这些片段的代码请改用 edit_file。
+- 调用前先用 read_file 确认待替换的内容。`;
     
     permissions = {
         readsFiles: true,
@@ -26,10 +31,10 @@ export class ApplyDiffTool implements Tool<ApplyDiffParams> {
         return {
             type: 'object',
             properties: {
-                path: { type: 'string', description: '要修改的文件路径' },
-                old_string: { type: 'string', description: '要被替换的旧字符串' },
-                new_string: { type: 'string', description: '替换后的新字符串' },
-                expected_count: { type: 'number', description: '期望的匹配次数' },
+                path: { type: 'string', description: '要修改的文件路径（工作区内相对路径）' },
+                old_string: { type: 'string', description: '要被替换的旧字符串，默认要求全文件唯一匹配' },
+                new_string: { type: 'string', description: '替换后的新字符串；其中的 $& / $1 会被当作替换模式解释' },
+                expected_count: { type: 'number', description: '期望的匹配次数（默认 1）', minimum: 1 },
             },
             required: ['path', 'old_string', 'new_string'],
         };

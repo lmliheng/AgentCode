@@ -9,8 +9,13 @@ import { DeepSeekProvider } from '../provider/deepseek.provider.js';
 import { AgentRuntime } from '../runtime/agent.runtime.js';
 import { baseTools } from '../tools/index.js'
 
+import path from 'node:path';
+import { writeFile } from 'node:fs/promises';
 async function main() {
     const workspacePath = process.argv[2] ?? process.cwd();
+
+
+    const task='运行 TypeScript 类型检查（npx tsc --noEmit），将输出结果写入 run_test/typecheck.md；若类型检查通过，再运行一次 npm run test:ds 并将结果追加到同一文件。'
 
     // 刻意不传 baseUrl：使用默认端点，同时覆盖该默认值
     const provider = new DeepSeekProvider({
@@ -24,11 +29,15 @@ async function main() {
         workspacePath,
         maxIterations: 100,
         timeoutMs: 60000,
+        // requestApproval
     });
 
-    const result = await runtime.run('在C:\Users\Lenovo\Desktop 下创建RAG目录，实现一个rag应用');
+    const result = await runtime.run(task);
 
-    console.log(JSON.stringify(result, null, 2))
+    // 日志写入
+    let fileName = process.argv[3]
+
+    await writeFile(path.join(process.cwd(), `./run_test/${fileName}`), JSON.stringify(result, null, 2))
 
     const succeeded = result.state.observations.filter(o => o.result.success);
     console.log('工作区:      ', workspacePath);
@@ -41,7 +50,7 @@ async function main() {
         console.log('首个成功观察:', JSON.stringify(succeeded[0]!.action.tool), JSON.stringify(succeeded[0]!.result.data).slice(0, 200));
     }
 
-    console.log('验收结论:', JSON.stringify(result.verification, null, 2));
+    // console.log('验收结论:', JSON.stringify(result.verification, null, 2));
 }
 
 main().catch(console.error);

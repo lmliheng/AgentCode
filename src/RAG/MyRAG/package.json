@@ -1,0 +1,86 @@
+{
+  "name": "myrag",
+  "version": "1.0.0",
+  "description": "生产级RAG应用",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "chunk": "tsx src/cli.ts chunk",
+    "ingest": "tsx --env-file=../rag-chunk/.env src/cli.ts ingest",
+    "query": "tsx --env-file=../rag-chunk/.env src/cli.ts query",
+    "eval": "tsx --env-file=../rag-chunk/.env src/cli.ts eval",
+    "review:overview": "tsx spike/export-overview.ts",
+    "review:samples": "tsx spike/export-chunks.ts",
+    "verify:chunk": "tsx spike/chunk-probe.ts",
+    "verify:zvec": "tsx --env-file=../rag-chunk/.env spike/zvec-spike.ts",
+    "probe:query": "tsx spike/query-probe.ts",
+    "probe:schema": "tsx spike/schema-probe.ts",
+    "probe:sources": "tsx spike/source-stats.ts",
+    "probe:open-cost": "tsx spike/open-cost.ts",
+    "demo:consumer": "tsx --env-file=../rag-chunk/.env spike/consumer-demo.ts",
+    "verify:id": "tsx spike/id-probe.ts",
+    "probe:parser": "tsx spike/parser-probe.ts",
+    "probe:md": "tsx spike/md-parse-probe.ts",
+    "probe:md-loss": "tsx spike/md-loss-probe.ts",
+    "probe:ast-shape": "tsx spike/ast-shape-probe.ts",
+    "dump:units": "tsx spike/unit-dump.ts",
+    "dump:fence": "tsx spike/fence-diagnose.ts",
+    "test": "npm run typecheck && npm run verify:chunk"
+  },
+  "_scriptDocs": {
+    "_about": "JSON 不支持注释，因此各 npm script 的说明集中写在这个字段里。npm 会忽略未知的顶层字段，不影响功能。",
+    "typecheck": "类型检查，不产出文件。当前 tsconfig（tsc --init 生成）开了 noUncheckedIndexedAccess 与 exactOptionalPropertyTypes 两个严格选项。",
+    "chunk": "主命令：对目录或文件做「解析 → 分块」，只计算不写库。参数见 _chunkArgs。例：npm run chunk -- ../Milvus/data --exclude jsx",
+    "_chunkArgs": "npm run chunk -- <目录或文件> [--exclude 路径段] [--export 输出.md] [--category 值] [--owner 值] [--version 值] [--limit n] [--quiet]。--exclude 按路径段精确匹配，--exclude jsx 只排除名为 jsx 的目录，不会误伤 faqs/jsx-and-react.md。",
+    "ingest": "入库：解析 → 分块 → 调智谱 embedding（对 embedText 向量化）→ 写入 Zvec。逐文件流式处理（不把全部 chunk 攒在内存），顺序是「先 embedding → 再删该 source 旧 chunk → 最后写入」，所以 embedding 失败不会破坏已有数据。参数见 _ingestArgs。需要 Z_API_KEY（已从 ../rag-chunk/.env 读取）。",
+    "_ingestArgs": "npm run ingest -- <目录或文件> [--db 目录] [--dim n] [--batch n] [--rebuild] [--exclude 路径段] [--limit n] [--category 值] [--owner 值] [--version 值] [--quiet]。--db 默认 ./zvec-data/myrag；--dim 默认 1024（schema 创建时固化，改它必须配 --rebuild）；--batch 默认 64（官方上限）；--rebuild 会删除 collection 目录重建，数据全部丢失。幂等：重跑结果一致，upsertSync 按 id 覆盖。",
+    "query": "检索已入库的 chunk。位置参数是问题本身：npm run query -- \"TypeScript 的类型有哪些\" --topk 5。默认 mode=dense（47 条标注集实测 dense 95.7% / MRR 0.866，优于 fts 83.0% 与三种融合的 93.6%）+ 按 group 折叠。参数见 _queryArgs。",
+    "_queryArgs": "npm run query -- <问题> [--topk n] [--mode dense|fts|hybrid] [--rerank rrf|weighted] [--weights a,b] [--filter 表达式] [--no-collapse] [--full] [--json] [--db 目录]。--mode 默认 dense；--rerank/--weights 仅 hybrid 生效；--filter 用 Zvec 语法、字符串需单引号，如 \"category = 'typescript-doc'\"；--no-collapse 关闭 group 折叠（默认开启：同一 section 的多窗/outline 只保留引擎排在最前的那条）；--json 便于脚本消费。",
+    "eval": "检索评测：读标注集 JSON，对多个检索配置跑同一批 query，输出 hit@k、MRR、逐条排名与未命中明细。当前标注集 eval/queries.json 有 47 条，覆盖语义型 / 术语型 / 小节定位型 / 非 md 来源。用法：npm run eval -- eval/queries.json --topk 10 [--modes dense,hybrid-rrf] [--db 目录] [--json]。**开跑前会校验 expectSources 是否都在库里**，不在就直接报错（否则那些 query 必然失败、指标失真）；要强行跑加 --allow-missing。",
+    "review:overview": "生成「检查单 + 速览」到 spike/chunk-overview.md：第 0 节检查清单，第一节 6 个样本逐 chunk 一览，第二节全语料每文件汇总，第三节全部小于 100 字符的 chunk 清单。",
+    "review:samples": "生成完整分块明细到 spike/chunk-samples.md：6 个代表性文件（含无标题 docx 与 pdf）的每个 chunk，附送去 embedding 的完整文本。",
+    "verify:chunk": "分块回归验证：在 80 篇真实 md 上对比旧实现（120 字符）与新实现（3600/540），统计 chunk 数、大小分布、碎片率、代码块 fence 配平、解析失败。",
+    "verify:zvec": "Zvec 能力验证（12 项）：schema 声明 dense+FTS(jieba)+标量字段、中文分词检索、multiQuery 的 rrf 与 weighted 融合、标量 filter、upsertSync 幂等、deleteByFilterSync、落盘重开。需要 Z_API_KEY，从 ../rag-chunk/.env 读取。",
+    "probe:query": "校验已入库数据是否可查：打开指定 collection，打印文档数/维度/字段，对给定检索词做 FTS（jieba 中文分词）并打印命中及完整字段。不调 embedding 接口、不消耗额度。用法：npm run probe:query -- <collection 目录> [检索词...]",
+    "probe:schema": "探测 Zvec 为本项目 schema 需要确认的行为：nullable 字段能否省略/传 null、ARRAY_INT64 页码、filter 的 = 与 IN、NOT 语法、重开后读回维度。结论：可空字段必须「省略」不能传 null；IN 可用；NOT 中缀不可用。",
+    "probe:open-cost": "测量打开 collection 句柄的开销。实测 ZVecOpen 平均 383 ms，复用句柄连续读 5 次只要 0.11 ms —— 这是 query() 默认缓存句柄的依据。",
+    "demo:consumer": "模拟 AgentCode 的消费方：只 import 对外入口 src/index.ts，验证「入口可用 / 句柄被缓存 / 持有句柄时灌库被挡且报错可读 / closeQuery() 后灌库成功」。注意它会真的跑一次 ingest（用 --limit 1 且 category 与现状一致，净效果为零）。",
+    "verify:id": "探测 Zvec doc id 的合法字符集与长度上限（实测：只允许 ASCII 字母数字与 - _ . # @ + = % $，最大 64 字符）。",
+    "probe:parser": "用真实 docx/pdf 检查 officeparser 的解析质量：节点类型分布、heading 层级（注意无标题样式的文档 heading 为 0）、表格行列结构、to('text') 与 to('chunks') 输出。",
+    "probe:md": "用 officeparser 解析 md 语料，看它的 chunks 策略产出（用于论证为什么 md 不走 officeparser：splitBy 与 maxChunkSize 实测无效）。",
+    "probe:md-loss": "量化 officeparser 解析 markdown 的有损程度（列表内缩进的代码块会被压成单行）。",
+    "probe:ast-shape": "打印 officeparser AST 各类型节点的真实字段形状，写适配器前用它确认（list 节点是「一个列表项」、cell 有 colSpan/rowSpan 等）。",
+    "dump:units": "打印单个 md（默认 tips/infer.md）解析出的原始单元文本，用于确认代码块换行、行内代码、链接是否被保留。",
+    "dump:fence": "定位「代码块 fence 不配平」的具体成因，打印问题 chunk 的所有 fence 行。",
+    "test": "当前没有单元测试框架。test = typecheck + 分块回归验证。"
+  },
+  "_entry": {
+    "_about": "对外入口（模块优先，进程内 import，无 HTTP 层）。main/types/exports 都指向 src/index.ts。",
+    "用法": "import { query, closeQuery } from '<此目录>/src/index.js'；const r = await query('问题', { topk: 5 })；r.hits[].{score,source,scope,heading,content}",
+    "必须知道的锁约束": "Zvec 的写是单进程独占。query() 默认 keepOpen=true 会缓存打开的句柄（复用 0.023ms vs 重开 383ms），但**持有期间 npm run ingest 会被锁挡住**（报 Can't lock read-write collection）。所以灌库前必须先调用 closeQuery()。若调用方无法确定何时灌库，用 keepOpen:false 换取安全（每次多约 0.4 秒）。",
+    "本入口是 TS 源码": "消费方需要能直接跑 TypeScript（本项目全程用 tsx）。若要作为普通 npm 包发布，需要先加一步构建产出 dist。",
+    "灌库为什么不做成函数导出": "锁是跨进程的，进程内同时持有读句柄会让灌库失败。所以 ingest 保持独立 CLI，由调用方在灌库前先 closeQuery()。"
+  },
+  
+  "keywords": [
+    "rag"
+  ],
+  "author": "lmliheng",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@zvec/zvec": "^0.7.1",
+    "officeparser": "^8.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.2",
+    "typescript": "^7.0.2"
+  }
+}

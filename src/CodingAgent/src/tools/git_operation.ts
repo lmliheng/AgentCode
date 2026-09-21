@@ -16,7 +16,17 @@ interface GitOperationParams extends ToolParams {
 
 export class GitOperationTool implements Tool<GitOperationParams> {
     name = 'git_operation';
-    description = '执行 Git 操作：status/diff/log/commit/branch/checkout/add';
+    description = `执行 Git 操作。各 operation 的含义与必填参数：
+
+- status：查看工作区改动，无其他参数。
+- diff：查看尚未暂存的改动，可用 paths 限定文件。
+- log：查看最近提交，limit 控制条数（默认 10）。
+- add：暂存改动，paths 指定文件。不传 paths 等同于 git add .，会暂存工作区全部改动，请谨慎。
+- commit：提交已暂存的内容，必须提供 message。本工具不会自动 add，先确认改动已暂存。
+- branch：新建分支，必须提供 branch。这不是查看分支列表。
+- checkout：切换到已有分支，必须提供 branch。
+
+其他限制：只有上述 7 种操作（没有 push/pull/stash/merge）；工作区不是 Git 仓库时会直接失败；判断成败请看 success 与 error 字段。`;
 
     permissions = {
         readsFiles: true,
@@ -35,12 +45,12 @@ export class GitOperationTool implements Tool<GitOperationParams> {
                 operation: {
                     type: 'string',
                     enum: ['status', 'diff', 'log', 'commit', 'branch', 'checkout', 'add'],
-                    description: 'Git 操作类型'
+                    description: '要执行的 Git 操作；各取值的含义与必填参数见工具说明'
                 },
-                paths: { type: 'array', items: { type: 'string' }, description: '操作路径' },
-                message: { type: 'string', description: 'commit 消息' },
-                branch: { type: 'string', description: '分支名' },
-                limit: { type: 'number', description: 'log 条数限制' },
+                paths: { type: 'array', items: { type: 'string' }, description: '要限定的文件路径，用于 diff 与 add；add 不传则暂存全部改动' },
+                message: { type: 'string', description: '提交信息，operation 为 commit 时必填' },
+                branch: { type: 'string', description: '分支名，operation 为 branch（新建）或 checkout（切换）时必填' },
+                limit: { type: 'number', description: 'log 返回的提交条数（默认 10）', minimum: 1 },
             },
             required: ['operation'],
         };

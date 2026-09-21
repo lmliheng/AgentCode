@@ -11,7 +11,12 @@ interface CreateFileParams extends ToolParams {
 
 export class CreateFileTool implements Tool<CreateFileParams> {
     name = 'create_file';
-    description = '在工作区中创建新文件，支持自动创建父目录';
+    description = `在工作区中创建新文件，父目录不存在会自动创建。
+
+- 只用于新建文件。目标已存在时直接失败；确认要覆盖时必须显式传 overwrite: true。
+- 修改已有文件用 edit_file，不要用本工具整体重写。
+- path 是工作区内的相对路径，不接受绝对路径，也不能包含 ..。
+- content 会整文件写入；覆盖场景下注意不要丢掉原有内容。`;
 
     permissions = {
         readsFiles: false,
@@ -24,9 +29,9 @@ export class CreateFileTool implements Tool<CreateFileParams> {
         return {
             type: 'object',
             properties: {
-                path: { type: 'string', description: '文件路径（相对于工作区）' },
-                content: { type: 'string', description: '文件内容' },
-                overwrite: { type: 'boolean', description: '是否覆盖已有文件，默认 false' },
+                path: { type: 'string', description: '文件路径，工作区内的相对路径' },
+                content: { type: 'string', description: '文件的完整内容' },
+                overwrite: { type: 'boolean', description: '目标已存在时是否覆盖（默认 false，此时会直接失败）' },
             },
             required: ['path', 'content'],
         };

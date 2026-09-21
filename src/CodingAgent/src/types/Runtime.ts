@@ -23,7 +23,6 @@ export interface AgentRuntimeConfig {
 
     /**
      * 没有交互层时使用的审批策略，默认 'auto-approve'（脚本 / 测试场景）。
-     *
      * 只有未提供 requestApproval 时才生效；首次按策略放行时会输出告警。
      */
     approvalPolicy?: ApprovalPolicy;

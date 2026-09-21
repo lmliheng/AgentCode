@@ -10,7 +10,7 @@ import { AgentRuntime } from '../../runtime/agent.runtime.js';
 import { ReadFileTool } from '../../tools/read_file.js';
 import { CreateFileTool } from '../../tools/create_file.js';
 import { RunCommandTool } from '../../tools/run_command.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
 import type { AgentProvider, AgentProviderConfig, ModelResponse } from '../../types/AgentProvider.js';
 import type { ChatMessage } from '../../types/Message.js';
 import type { ModelDecision } from '../../types/ReAct.js';
@@ -72,8 +72,9 @@ describe('Runtime 独立复验', () => {
         return dir;
     }
 
+    /** 脚本第一位留给规划轮，用例如下断言的都是进入循环之后的行为 */
     function runtimeFor(workspaceDir: string, decisions: ModelDecision[]): AgentRuntime {
-        return new AgentRuntime(new ScriptedProvider(decisions), [new ReadFileTool(), new CreateFileTool(), new RunCommandTool()], {
+        return new AgentRuntime(new ScriptedProvider([initialPlanDecision(), ...decisions]), [new ReadFileTool(), new CreateFileTool(), new RunCommandTool()], {
             workspacePath: workspaceDir,
             maxIterations: 5,
         });
@@ -180,6 +181,7 @@ describe('Runtime 独立复验', () => {
 
         const runtime = new AgentRuntime(
             new ScriptedProvider([
+                initialPlanDecision(),
                 {
                     type: 'Action',
                     tool: 'create_file',

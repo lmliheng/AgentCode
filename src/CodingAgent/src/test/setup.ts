@@ -3,6 +3,51 @@
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { join, dirname, sep } from 'path';
 import { tmpdir } from 'os';
+import type { ModelResponse } from '../types/AgentProvider.js';
+import type { ModelDecision } from '../types/ReAct.js';
+
+/**
+ * 运行时在进入 ReAct 循环前会先请求一次初始计划（见 AgentRuntime.createInitialPlan）：
+ * 它把工具声明随请求下发，并要求模型通过 request_replan 提交步骤列表。
+ *
+ * 因此「按脚本逐轮返回决策」的测试 Provider，其脚本第一位要留给规划轮；
+ * 只关心循环行为的用例用下面的工厂补上这一轮。
+ */
+export function initialPlanDecision(): ModelDecision {
+    return {
+        type: 'Replan',
+        reason: '初始规划',
+        newPlan: [
+            {
+                id: 'step-1',
+                description: '理解任务与相关代码',
+                status: 'pending',
+                dependsOn: [],
+                completionCriteria: '已确认改动点',
+            },
+            {
+                id: 'step-2',
+                description: '完成代码变更',
+                status: 'pending',
+                dependsOn: ['step-1'],
+                completionCriteria: '变更已完成',
+            },
+            {
+                id: 'step-3',
+                description: '运行测试验证',
+                status: 'pending',
+                dependsOn: ['step-2'],
+                completionCriteria: '测试通过',
+            },
+        ],
+    };
+}
+
+/** 规划轮的固定响应，供按 ModelResponse 排队的 Provider 使用 */
+export function initialPlanResponse(): ModelResponse {
+    const decision = initialPlanDecision();
+    return { decision, rawContent: JSON.stringify(decision) };
+}
 
 /**
  * 创建测试工作区

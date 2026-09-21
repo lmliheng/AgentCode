@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AgentRuntime, sanitizeMessageSequence } from '../../runtime/agent.runtime.js';
 import { ReadFileTool } from '../../tools/read_file.js';
 import { CreateFileTool } from '../../tools/create_file.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
 import type {
     AgentProvider,
     AgentProviderConfig,
@@ -23,9 +23,19 @@ class CapturingProvider implements AgentProvider {
     readonly name = 'capturing';
     config: AgentProviderConfig = { modelName: 'capturing', temperature: 0, maxTokens: 100 };
     readonly calls: ChatMessage[][] = [];
+    private readonly script: Array<{ decision: ModelDecision; usage?: TokenUsage }>;
     private index = 0;
 
-    constructor(private readonly script: Array<{ decision: ModelDecision; usage?: TokenUsage }>) {}
+    constructor(script: Array<{ decision: ModelDecision; usage?: TokenUsage }>) {
+        // 脚本第一位留给规划轮：运行时进入循环前会先请求一次初始计划
+        this.script = [
+            {
+                decision: initialPlanDecision(),
+                usage: { promptTokens: 4, completionTokens: 1, totalTokens: 5 },
+            },
+            ...script,
+        ];
+    }
 
     updateConfig(): void {
         // 测试用，无需实现
@@ -86,11 +96,12 @@ describe('真实消息序列', () => {
         });
         await runtime.run('读取 src/a.ts');
 
-        // 第二次请求才带上了第一次的调用与结果
-        const second = provider.calls[1];
-        expect(second).toBeDefined();
+        // calls[0] 是规划轮；calls[1] 是进入循环后的第一轮，此时还没有任何历史；
+        // 第二次循环请求才带上了第一次的调用与结果
+        const secondLoop = provider.calls[2];
+        expect(secondLoop).toBeDefined();
 
-        const assistants = assistantWithCalls(second!);
+        const assistants = assistantWithCalls(secondLoop!);
         expect(assistants).toHaveLength(1);
         const call = assistants[0]!.tool_calls![0]!;
 
@@ -100,7 +111,7 @@ describe('真实消息序列', () => {
         expect(JSON.parse(call.function.arguments)).toEqual({ path: 'src/a.ts' });
 
         // 工具结果通过同一标识与之配对
-        const results = toolMessages(second!);
+        const results = toolMessages(secondLoop!);
         expect(results).toHaveLength(1);
         expect(results[0]!.tool_call_id).toBe('call_real_1');
         expect(results[0]!.name).toBe('read_file');
@@ -159,10 +170,10 @@ describe('真实消息序列', () => {
         });
         await runtime.run('并发读取两次');
 
-        const second = provider.calls[1]!;
-        const call = assistantWithCalls(second)[0]!;
+        const secondLoop = provider.calls[2]!;
+        const call = assistantWithCalls(secondLoop)[0]!;
         expect(call.tool_calls!.map(c => c.id)).toEqual(['call_x', 'call_y']);
-        expect(toolMessages(second).map(m => m.tool_call_id)).toEqual(['call_x', 'call_y']);
+        expect(toolMessages(secondLoop).map(m => m.tool_call_id)).toEqual(['call_x', 'call_y']);
     });
 
     it('构造「有调用无结果」的历史时，序列中不残留该调用', () => {
@@ -245,9 +256,9 @@ describe('累计 token 用量', () => {
         });
         const { state } = await runtime.run('读两次');
 
-        expect(state.tokenUsage.totalTokens).toBe(15 + 27 + 33);
-        expect(state.tokenUsage.promptTokens).toBe(60);
-        expect(state.tokenUsage.completionTokens).toBe(15);
+        expect(state.tokenUsage.totalTokens).toBe(5 + 15 + 27 + 33);
+        expect(state.tokenUsage.promptTokens).toBe(4 + 60);
+        expect(state.tokenUsage.completionTokens).toBe(1 + 15);
         expect(state.tokenUsage.complete).toBe(true);
     });
 
@@ -274,7 +285,7 @@ describe('累计 token 用量', () => {
         const { state } = await runtime.run('读两次');
 
         // 不补 0：缺失的那轮既不贡献数值，也不被当作 0 计
-        expect(state.tokenUsage.totalTokens).toBe(15 + 33);
+        expect(state.tokenUsage.totalTokens).toBe(5 + 15 + 33);
         expect(state.tokenUsage.complete).toBe(false);
     });
 });

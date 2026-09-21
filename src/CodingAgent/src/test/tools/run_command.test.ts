@@ -74,5 +74,21 @@ describe('RunCommandTool', () => {
             expect(result.success).toBe(false);
             expect(result.error).toContain('取消');
         });
+
+        it('应该在超时后杀掉命令，并回报已捕获的输出', async () => {
+            const result = await tool.execute(
+                { command: 'node -e "console.log(1);setTimeout(function(){},10000)"', timeout: 1000 },
+                ctx
+            );
+            expect(result.success).toBe(false);
+            expect(result.error).toContain('命令超时');
+            expect((result.data as any).stdout).toContain('1');
+        }, 15000);
+
+        it('应该在未超时时正常返回', async () => {
+            const result = await tool.execute({ command: 'echo quick', timeout: 10000 }, ctx);
+            expect(result.success).toBe(true);
+            expect((result.data as any).stdout.trim()).toBe('quick');
+        });
     });
 });

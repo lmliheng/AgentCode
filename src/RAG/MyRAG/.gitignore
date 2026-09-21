@@ -1,0 +1,9 @@
+node_modules/
+package-lock.json
+
+# Zvec collection 是二进制索引产物，不入库（可用 npm run ingest 重新生成）
+zvec-data/
+spike/zvec-data/
+
+# 生成的分块报告（可用 npm run chunk --export 重新生成）
+*-review.md

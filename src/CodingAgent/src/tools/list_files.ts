@@ -4,6 +4,8 @@ import { readdirSync, statSync } from 'fs';
 import { join, relative, resolve } from 'path';
 import type{ Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
 
+
+
 interface ListFilesParams extends ToolParams {
     path?: string;             // 起始路径，默认工作区根目录
     recursive?: boolean;       // 是否递归，默认 false
@@ -22,9 +24,17 @@ interface FileEntry {
     extension?: string;        // 文件扩展名
 }
 
+
 export class ListFilesTool implements Tool<ListFilesParams> {
     name = 'list_files';
-    description = '列出工作区中的文件和目录，支持递归遍历和过滤';
+    description = `列出工作区中的文件和目录，返回扁平列表。
+
+- 要看某一层的目录结构请用 read_directory（返回树形结果）；本工具适合按文件名筛选。
+- pattern 是文件名前缀匹配，不是 glob：传 "*.ts" 会一条都匹配不到，应传 "test_" 这类前缀。
+- 默认只列当前层；递归子目录需 recursive: true，可用 depth 限制层数。
+- recursive 时会自动跳过 node_modules/.git/dist/.next/build/coverage。
+- maxResults 默认 200，超出会截断；返回的 total 是实际条数，truncated 表示是否被截断。
+- 返回项的 path 是相对工作区根的路径，可直接作为其他工具的 path 参数。`;
     
     permissions = {
         readsFiles: true,
@@ -39,13 +49,13 @@ export class ListFilesTool implements Tool<ListFilesParams> {
         return {
             type: 'object',
             properties: {
-                path: { type: 'string', description: '起始路径，默认为工作区根目录' },
-                recursive: { type: 'boolean', description: '是否递归子目录' },
-                depth: { type: 'number', description: '递归深度' },
-                pattern: { type: 'string', description: '文件名过滤（前缀匹配）' },
-                includeDirs: { type: 'boolean', description: '是否包含目录' },
-                includeFiles: { type: 'boolean', description: '是否包含文件' },
-                maxResults: { type: 'number', description: '最大结果数' },
+                path: { type: 'string', description: '起始路径（工作区内相对路径，默认为工作区根目录）' },
+                recursive: { type: 'boolean', description: '是否递归子目录（默认 false）' },
+                depth: { type: 'number', description: '递归层数上限，仅 recursive 为 true 时生效（默认不限）', minimum: 0 },
+                pattern: { type: 'string', description: '文件名前缀匹配，不是 glob：传 "test_" 匹配 test_*.ts（默认不过滤）' },
+                includeDirs: { type: 'boolean', description: '是否包含目录（默认 true）' },
+                includeFiles: { type: 'boolean', description: '是否包含文件（默认 true）' },
+                maxResults: { type: 'number', description: '最大返回条数（默认 200）', minimum: 1 },
             },
         };
     }

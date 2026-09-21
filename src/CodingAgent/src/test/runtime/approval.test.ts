@@ -7,7 +7,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
 import { ReadFileTool } from '../../tools/read_file.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
 import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult, PendingAction } from '../../types/Tool.js';
 import type { AgentProvider, AgentProviderConfig, ModelResponse } from '../../types/AgentProvider.js';
 import type { ChatMessage } from '../../types/Message.js';
@@ -102,6 +102,8 @@ describe('人工审批', () => {
     ): AgentRuntime {
         return new AgentRuntime(
             new ScriptedProvider([
+                // 脚本第一位留给规划轮，审批相关的决策从进入循环后开始
+                initialPlanDecision(),
                 { type: 'Action', tool: tool.name, params: { path: 'src/a.ts' }, thought: '动手' },
                 { type: 'Final', answer: '完成' },
             ]),
@@ -168,6 +170,7 @@ describe('人工审批', () => {
         const approver = vi.fn(async () => 'approve' as const);
         const runtime = new AgentRuntime(
             new ScriptedProvider([
+                initialPlanDecision(),
                 { type: 'Action', tool: 'read_file', params: { path: 'src/a.ts' }, thought: '读取' },
                 { type: 'Final', answer: '完成' },
             ]),

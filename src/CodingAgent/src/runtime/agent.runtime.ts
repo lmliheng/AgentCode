@@ -10,6 +10,7 @@ import type {
     ModelDecision,
     AgentRunState,
     PlanState,
+    PlanStep,
     Observation,
     StopReason,
     TaskVerificationResult,
@@ -46,6 +47,50 @@ interface ActionLike {
 
 /** 会产生文件变更的工具 */
 const MODIFYING_TOOLS = ['edit_file', 'delete_file', 'create_file', 'move_file', 'apply_diff', 'git_operation'];
+
+/**
+ * 模型没有提交初始计划时使用的兜底步骤。
+ *
+ * 计划是推进任务的手段而不是前置条件：规划轮拿不到计划时用它保底，
+ * 让循环照常开始，而不是把整个任务拦在规划阶段。
+ */
+const FALLBACK_PLAN_STEPS: PlanStep[] = [
+    {
+        id: 'step-1',
+        description: '理解需求和代码结构',
+        status: 'pending',
+        dependsOn: [],
+        completionCriteria: '已理解任务目标和相关代码',
+    },
+    {
+        id: 'step-2',
+        description: '实现代码变更',
+        status: 'pending',
+        dependsOn: ['step-1'],
+        completionCriteria: '代码变更已完成并通过类型检查',
+    },
+    {
+        id: 'step-3',
+        description: '运行测试验证',
+        status: 'pending',
+        dependsOn: ['step-2'],
+        completionCriteria: '所有测试通过',
+    },
+];
+
+/**
+ * 规划轮的提示词。
+ *
+ * 与循环内的系统提示分开：这一轮唯一的产品是计划，执行类工具的调用
+ * 在这一轮既无人消费、也不计入预算。
+ */
+const PLANNING_SYSTEM_PROMPT = `你是 AI 编码助手。这一轮只做规划：把任务拆成可依次执行、可独立判断完成的步骤，不要执行任何操作。
+
+要求：
+- 通过 ${REQUEST_REPLAN_TOOL} 提交步骤列表，不要调用其他工具。
+- 每个步骤的 completionCriteria 必须写清「怎么算这一步完成了」。
+- 步骤之间的先后依赖用 dependsOn 标明，取值是其他步骤的 id。
+- 步骤范围以任务本身为界，不要拆出与任务无关的步骤。`;
 
 /** 一次动作执行内的审批决定缓存，使同一动作只问一次 */
 interface ApprovalCache {
@@ -119,11 +164,7 @@ export class AgentRuntime {
                 // 3.1 构建上下文消息（真实消息序列）
                 const messages = this.buildContextMessages();
 
-                const toolDefinitions: ToolDefinition[] = Array.from(this.tools.values()).map(tool => ({
-                    name: tool.name,
-                    description: tool.description,
-                    parameters: tool.getSchema() as Record<string, unknown>,
-                }));
+                const toolDefinitions = this.buildToolDefinitions();
 
                 // 3.2 让模型决策
                 const response = await this.provider.decide(messages, toolDefinitions);
@@ -243,36 +284,66 @@ export class AgentRuntime {
     /**
      * 生成初始计划
      *
-     * 这里我们先用一个简单的策略：
-     * 将任务描述发给模型，让它生成一个初步的计划
-     * 后续 Plan-and-Execute 模块会完善这个逻辑
+     * 规划是进入循环前的独立一轮模型调用：运行时下发已注册的工具声明，
+     * 要求模型通过 `request_replan` 提交步骤列表 —— 这是协议里唯一能携带
+     * 结构化计划的通道（见 design.md D1，决策从哪来由 Provider 翻译）。
+     *
+     * 本轮只取计划：不执行工具、不计入迭代与工具调用预算，但用量照常计入
+     * 累计消耗（它同样是一次真实的模型调用）。
+     *
+     * 模型没按协议提交计划、或这一轮调用失败时回落到兜底计划，
+     * 让循环照常开始，而不是把整个任务拦在规划阶段。
      */
     private async createInitialPlan(taskDescription: string): Promise<void> {
-        // 暂时使用一个默认计划
-        // 后续会由 Planner 模块接管
-        this.state.plan.steps = [
+        const toolDefinitions = this.buildToolDefinitions();
+
+        // 没有可执行工具时控制流入口不会被声明，模型也就没有提交计划的通道，
+        // 这一轮请求注定拿不到计划 —— 直接跳过，不做无谓的调用。
+        if (toolDefinitions.length === 0) {
+            this.state.plan.steps = cloneFallbackPlan();
+            return;
+        }
+
+        const messages: ChatMessage[] = [
+            { role: 'system', content: PLANNING_SYSTEM_PROMPT },
             {
-                id: 'step-1',
-                description: '理解需求和代码结构',
-                status: 'pending',
-                dependsOn: [],
-                completionCriteria: '已理解任务目标和相关代码',
-            },
-            {
-                id: 'step-2',
-                description: '实现代码变更',
-                status: 'pending',
-                dependsOn: ['step-1'],
-                completionCriteria: '代码变更已完成并通过类型检查',
-            },
-            {
-                id: 'step-3',
-                description: '运行测试验证',
-                status: 'pending',
-                dependsOn: ['step-2'],
-                completionCriteria: '所有测试通过',
+                role: 'user',
+                content: `任务目标: ${taskDescription}\n\n请先给出执行计划：调用 ${REQUEST_REPLAN_TOOL} 提交步骤列表。`,
             },
         ];
+
+        let steps: PlanStep[] = [];
+
+        try {
+            const response = await this.provider.decide(messages, toolDefinitions);
+            this.recordUsage(response.usage, messages);
+
+            if (response.decision.type === 'Replan') {
+                steps = normalizePlanSteps(response.decision.newPlan);
+            }
+        } catch (error) {
+            console.warn(`[AgentRuntime] 初始计划生成失败，改用兜底计划: ${(error as Error).message}`);
+        }
+
+        if (steps.length === 0) {
+            console.warn(
+                `[AgentRuntime] 模型未通过 ${REQUEST_REPLAN_TOOL} 提交初始计划，改用兜底计划`
+            );
+            steps = cloneFallbackPlan();
+        }
+
+        this.state.plan.steps = steps;
+    }
+
+    /**
+     * 生成随请求下发的工具声明。
+     */
+    private buildToolDefinitions(): ToolDefinition[] {
+        return Array.from(this.tools.values()).map(tool => ({
+            name: tool.name,
+            description: tool.description,
+            parameters: tool.getSchema() as Record<string, unknown>,
+        }));
     }
 
 
@@ -544,6 +615,8 @@ export class AgentRuntime {
         }
     }
 
+
+
     /**
      * 记录一次「未能执行」的失败观察。
      *
@@ -558,6 +631,9 @@ export class AgentRuntime {
         });
     }
 
+
+
+
     /**
      * 同一动作内只解析一次审批决定，避免运行时与工具各问一遍。
      */
@@ -569,6 +645,9 @@ export class AgentRuntime {
         cache.decision = decision;
         return decision;
     }
+
+
+
 
     /**
      * 取得审批决定。
@@ -591,6 +670,8 @@ export class AgentRuntime {
         return policy === 'auto-approve' ? 'approve' : 'reject';
     }
 
+
+    
     /**
      * 取出动作实际触及的路径，用于记录文件变更。
      */
@@ -968,14 +1049,11 @@ export class AgentRuntime {
      * 输出某种 JSON 格式（见 design.md D2/D3）。
      */
     private buildSystemPrompt(): string {
-        const toolDescriptions = Array.from(this.tools.values())
-            .map(t => `- ${t.name}: ${t.description}`)
-            .join('\n');
+    
+
+            // 不用写把工具写入prompts
 
         return `你是一个 AI 编码助手，需要在用户的工作区中完成开发任务。
-
-可用工具：
-${toolDescriptions}
 
 工作方式：
 - 需要读取或修改文件、执行命令时，调用相应工具。
@@ -1135,6 +1213,82 @@ ${steps}`;
     }
 }
 
+
+/**
+ * 兜底计划的新副本。
+ *
+ * 每次运行都拿到独立的步骤对象：计划状态在运行中会被改写（状态、当前步骤索引），
+ * 共用一份常量会让上一次运行的结果泄漏到下一次。
+ */
+function cloneFallbackPlan(): PlanStep[] {
+    return FALLBACK_PLAN_STEPS.map(step => ({ ...step, dependsOn: [...step.dependsOn] }));
+}
+
+/**
+ * 把模型提交的步骤规范成合法计划（PlanStep 的类型约束）。
+ *
+ * 模型输出是不可信的，即使它已经过一次边界翻译：id 可能缺失或重复、
+ * dependsOn 可能指向不存在的步骤甚至指向自己、状态可能自报已完成。
+ * 这里统一收敛到「id 唯一 + 依赖闭合 + 全部 pending」的形状，
+ * 使计划可以直接驱动后续的步骤推进。
+ *
+ * id 一律按位置重编：模型声明的 id 只用于解析依赖关系，它的取值本身
+ * 不参与计划语义。没有描述的步骤无法推进也无法交代，直接丢弃。
+ */
+function normalizePlanSteps(raw: unknown): PlanStep[] {
+    if (!Array.isArray(raw)) return [];
+
+    const kept: Record<string, unknown>[] = [];
+    for (const entry of raw) {
+        if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+        const candidate = entry as Record<string, unknown>;
+        const description = typeof candidate.description === 'string' ? candidate.description.trim() : '';
+        if (!description) continue;
+        kept.push(candidate);
+    }
+
+    // 先建立「模型声明的 id → 运行时重编后的 id」映射，重复声明只认第一次出现
+    const idMap = new Map<string, string>();
+    kept.forEach((entry, index) => {
+        const declared = typeof entry.id === 'string' ? entry.id.trim() : '';
+        if (declared && !idMap.has(declared)) {
+            idMap.set(declared, stepId(index));
+        }
+    });
+
+    return kept.map((entry, index) => {
+        const id = stepId(index);
+        return {
+            id,
+            description: (entry.description as string).trim(),
+            // 新计划一律从 pending 开始，不接受模型自报已完成
+            status: 'pending',
+            dependsOn: normalizeDependencies(entry.dependsOn, idMap, id),
+            completionCriteria: typeof entry.completionCriteria === 'string' ? entry.completionCriteria : '',
+        };
+    });
+}
+
+/** 计划步骤的 id 编号口径，与 handleReplan 的位置编号保持一致 */
+function stepId(index: number): string {
+    return `step-${index + 1}`;
+}
+
+/**
+ * 解析依赖：只保留能落到计划内的引用，丢掉未知 id 与自引用。
+ */
+function normalizeDependencies(raw: unknown, idMap: Map<string, string>, selfId: string): string[] {
+    if (!Array.isArray(raw)) return [];
+
+    const dependencies: string[] = [];
+    for (const entry of raw) {
+        if (typeof entry !== 'string') continue;
+        const resolved = idMap.get(entry.trim());
+        if (!resolved || resolved === selfId || dependencies.includes(resolved)) continue;
+        dependencies.push(resolved);
+    }
+    return dependencies;
+}
 
 /**
  * 判定一次成功的工具调用是否真的产出了内容。

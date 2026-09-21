@@ -14,7 +14,7 @@ import { ReadFileTool } from '../../tools/read_file.js';
 import { SearchCodeTool } from '../../tools/search_code.js';
 import { ListFilesTool } from '../../tools/list_files.js';
 import { ReadDirectoryTool } from '../../tools/read_directory.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
 import type { Tool, ToolParams } from '../../types/Tool.js';
 import type { AgentRuntimeConfig } from '../../types/Runtime.js';
 import type { AgentProvider, AgentProviderConfig, ModelResponse } from '../../types/AgentProvider.js';
@@ -35,16 +35,21 @@ async function captureToolResultContent(
         config: { modelName: 'capturing', temperature: 0, maxTokens: 100 },
         updateConfig() { /* noop */ },
         async decide(incoming: ChatMessage[]): Promise<ModelResponse> {
-            if (turn > 0) {
-                for (const message of incoming) {
-                    if (message.role === 'tool') captured.push((message as ToolMessage).content);
-                }
-            }
             turn += 1;
 
-            return turn === 1
-                ? { decision: { type: 'Action', tool: tool.name, params, thought: '执行' }, rawContent: '' }
-                : { decision: { type: 'Final', answer: '完成' }, rawContent: '' };
+            // 第一轮是进入循环前的规划轮，这里只取计划
+            if (turn === 1) {
+                return { decision: initialPlanDecision(), rawContent: '' };
+            }
+            if (turn === 2) {
+                return { decision: { type: 'Action', tool: tool.name, params, thought: '执行' }, rawContent: '' };
+            }
+
+            // 第三轮才带上了执行结果
+            for (const message of incoming) {
+                if (message.role === 'tool') captured.push((message as ToolMessage).content);
+            }
+            return { decision: { type: 'Final', answer: '完成' }, rawContent: '' };
         },
     };
 
