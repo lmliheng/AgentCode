@@ -183,6 +183,20 @@ describe('工具输出预算（模块层）', () => {
         expect(readFileSync(persisted, 'utf-8')).toBe(content);
     });
 
+    it('落盘路径由内容决定，重复派生得到同一路径', () => {
+        const content = 'w'.repeat(3000);
+        const budget: OutputBudget = { maxChars: 200, maxLines: Number.POSITIVE_INFINITY };
+
+        // 工具结果消息每轮都从观察重新派生一次。路径若带随机量，同一段历史每轮
+        // 都长得不一样，服务端前缀缓存会从第一条被截断的结果起永久失配。
+        const first = apply(content, budget);
+        const second = apply(content, budget);
+
+        expect(second.fullOutputPath).toBe(first.fullOutputPath);
+        // 内容不同则路径不同，两份全文不会叠在同一条路径上
+        expect(apply('v'.repeat(3000), budget).fullOutputPath).not.toBe(first.fullOutputPath);
+    });
+
     it('已截断的内容不被再次截断（幂等）', () => {
         const content = 'q'.repeat(3000);
         const budget: OutputBudget = { maxChars: 300, maxLines: Number.POSITIVE_INFINITY };

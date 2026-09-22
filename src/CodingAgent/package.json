@@ -1,8 +1,20 @@
 {
-  "name": "coding-agent",
-  "version": "1.0.0",
+  "name": "@lmliheng/acode",
+  "version": "1.0.2",
   "description": "coding Agent 对标 cloude code 的Agent应用",
-  "main": "index.js",
+  "bin": {
+    "acode": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.12"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
@@ -11,31 +23,34 @@
     "test:bat": "tsx --env-file=.env src/test/task-runner.ts",
     "test:cli": "vitest run src/test/cli/cli.test.ts",
     "cli": "tsx --env-file=.env src/cli.ts",
-    "cli:list":"tsx --env-file=.env src/cli.ts --list",
-    "cli:dev":"tsx --env-file=.env src/cli.ts --dev",
-    
+    "cli:list": "tsx --env-file=.env src/cli.ts --list",
+    "cli:dev": "tsx --env-file=.env src/cli.ts --dev",
     "cli:build": "vite build",
-    "cli:tui": "node --env-file=.env src/cli/dist/main.mjs"
+    "cli:tui": "node --env-file=.env src/cli/dist/main.mjs",
+    "build:cli": "vite build --config vite.cli.config.ts",
+    "p": "npm version patch && npm publish --access public --registry=https://registry.npmjs.org/"
   },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
+  "keywords": [
+    "agent",
+    "cli",
+    "ReAct"
+  ],
+
+  "author": "lmliheng",
+  "license": "MIT",
   "type": "module",
   "devDependencies": {
     "@types/node": "^22.20.2",
     "@vitejs/plugin-vue": "^6.0.9",
+    "@vue-tui/runtime": "^0.3.0",
     "@vue-tui/vite": "^0.3.1",
     "tsx": "^4.23.13",
     "typescript": "^7.0.2",
-    "vite": "8.2.1"
-  },
-  "dependencies": {
-    "@inquirer/prompts": "^8.7.2",
-    "@vue-tui/runtime": "^0.3.0",
-    "chalk": "^6.0.0",
-    "commander": "^15.0.0",
-    "inquirer": "^14.2.2",
+    "vite": "8.2.1",
     "vitest": "^5.0.1",
     "vue": "^3.5.43"
+  },
+  "dependencies": {
+    "chalk": "^6.0.0"
   }
 }

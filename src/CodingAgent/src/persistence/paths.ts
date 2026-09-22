@@ -9,10 +9,15 @@
 //     sessions/<sessionId>/events.jsonl               事件流（append-only）
 //     sessions/<sessionId>/blobs/                     预留：大对象外置
 //
+// 同级还有用户级配置（见 agentcodeHome / userEnvFile）：
+//   <home>/.agentcode/.env                            API Key 等
+//
 // 放在**用户级目录**而不是工作区内：工作区内的文件会被 git_operation 暂存、
 // 被 search_code / read_directory 搜到，会话数据不该出现在这些工具的结果里
 // （工具输出落盘在 output-budget.ts 里已因为同一理由放到工作区之外）。
 // 也不放系统临时目录：长驻会话要跨重启存活，而临时目录会被清理。
+//
+// API Key 同理不能落在工作区：会被提交、被工具读到、被打进发布包。
 
 import { createHash, randomBytes } from 'node:crypto';
 import { homedir } from 'node:os';
@@ -26,8 +31,34 @@ import { join, resolve } from 'node:path';
  */
 export const SESSIONS_ROOT_ENV = 'AGENTCODE_SESSIONS_ROOT';
 
+/**
+ * 覆盖用户级 .env 位置的环境变量。用途同上：测试用临时文件，用户想换位置也能换。
+ */
+export const ENV_FILE_ENV = 'AGENTCODE_ENV_FILE';
+
 /** 会话 ID 形状：`YYYYMMDD-HHMMSS-<6位十六进制>` */
 export const SESSION_ID_PATTERN = /^\d{8}-\d{6}-[0-9a-f]{6}$/;
+
+/**
+ * 用户级目录：家目录下的固定位置。
+ *
+ * 目录名只在这里出现一次 —— 分散写死会导致「改一处忘一处」，表现为数据跑到
+ * 别的地方去了，而且不报错。
+ */
+export function agentcodeHome(): string {
+  return join(homedir(), '.agentcode');
+}
+
+/**
+ * 用户级 .env 文件。
+ *
+ * 全局安装的命令行没有 npm script 帮忙传 `--env-file`，而那个参数是相对**当前
+ * 工作目录**解析的 —— 用户在任意目录下敲命令时它指不到这里。所以位置固定，
+ * 由命令自己加载（见 src/config/user-env.ts）。
+ */
+export function userEnvFile(override?: string): string {
+  return override ?? process.env[ENV_FILE_ENV] ?? join(agentcodeHome(), '.env');
+}
 
 /**
  * 规范化工作区路径。
@@ -52,7 +83,7 @@ export function workspaceHash(raw: string): string {
 
 /** 会话根目录：家目录下的固定位置，可用环境变量覆盖 */
 export function sessionsRoot(override?: string): string {
-  return override ?? process.env[SESSIONS_ROOT_ENV] ?? join(homedir(), '.agentcode', 'sessions');
+  return override ?? process.env[SESSIONS_ROOT_ENV] ?? join(agentcodeHome(), 'sessions');
 }
 
 /** 某个工作区的会话分区目录 */

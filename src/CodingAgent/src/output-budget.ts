@@ -1,5 +1,5 @@
-import { createHash, randomBytes } from 'node:crypto';
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -171,13 +171,22 @@ function keepBothEnds(content: string, maxChars: number, maxLines: number): stri
  *
  * 位置放在工作区**之外**：工作区内会被 git_operation 暂存、被 read_directory
  * 列出、被 search_code 搜到，临时文件会污染这些工具的自身结果。
+ *
+ * 文件名取内容摘要，**不能带随机量**：这个路径会被写进工具结果、进入模型的
+ * 上下文，而工具结果消息每轮都要从观察重新派生一次。随机文件名会让同一段历史
+ * 每轮长得都不一样，服务端的前缀缓存从第一条被截断的结果起就再也命不中 ——
+ * 实测该处命中率从 ~95% 掉到 14%，且同一份全文按运行轮数被反复落盘。
  */
 function persistFullOutput(content: string, toolName: string, workspaceRoot: string): string {
     const directory = outputDirectory(workspaceRoot);
     mkdirSync(directory, { recursive: true });
 
-    const filePath = join(directory, `${toolName}_${randomBytes(6).toString('hex')}.txt`);
-    writeFileSync(filePath, content, 'utf-8');
+    // 内容相同即路径相同：重复派生因此退化为无副作用的 no-op
+    const digest = createHash('sha1').update(content).digest('hex').slice(0, 16);
+    const filePath = join(directory, `${toolName}_${digest}.txt`);
+    if (!existsSync(filePath)) {
+        writeFileSync(filePath, content, 'utf-8');
+    }
 
     return filePath;
 }

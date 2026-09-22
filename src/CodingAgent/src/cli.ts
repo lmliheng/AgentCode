@@ -3,7 +3,11 @@
 // 一个能真正跑起来的会话 CLI
 //
 // 运行：
-//   npx tsx --env-file=.env src/cli.ts [工作区路径] [选项]
+//   开发中：  npm run cli -- [工作区路径] [选项]   （即 tsx --env-file=.env src/cli.ts）
+//   装成包后：acode [工作区路径] [选项]           （构建产物 dist/cli.js，见 vite.cli.config.ts）
+//
+// API Key：先读环境变量 DEEPSEEK_API_KEY，没有才读用户级 .env（见 config/user-env.ts）。
+// 开发时那个 .env 由 --env-file 传入，两者不冲突。
 //
 // 选项：
 //   --resume[=会话ID]   接上一个会话（不带 ID 时接本工作区最后活跃的那个）
@@ -23,6 +27,8 @@
 
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
+import { realpathSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import chalk from 'chalk';
 
@@ -30,8 +36,10 @@ import { DeepSeekProvider } from './provider/deepseek.provider.js';
 import { AgentRuntime } from './runtime/agent.runtime.js';
 import { ToolRegistry } from './tools/ToolRegistry.js';
 import { config } from './config/default.js';
+import { loadUserEnvFile } from './config/user-env.js';
 
 import { SessionStore, listSessions } from './persistence/session-store.js';
+import { userEnvFile } from './persistence/paths.js';
 import { formatSessionList, resolveResumeTarget } from './persistence/resume.js';
 
 import type { SessionEventInput } from './persistence/events.js';
@@ -45,7 +53,7 @@ import { parseArgs } from './utils/ParseArgs.js'
 
 
 
-const USAGE = `用法: tsx --env-file=.env src/cli.ts [工作区路径] [选项]
+const USAGE = `用法: acode [工作区路径] [选项]
 
 选项:
   --resume[=会话ID]   接上一个会话（不带 ID 时接本工作区最后活跃的那个）
@@ -311,9 +319,18 @@ async function main(): Promise<void> {
     return;
   }
 
+  // 环境变量优先；没有才去读用户级 .env。
+  // 全局安装后没有 npm script 帮忙传 --env-file，而那个参数相对当前工作目录解析，
+  // 在用户任意目录下敲命令时指不到家目录里的文件，所以这里自己加载。
+  loadUserEnvFile();
+
   const apiKey = process.env.DEEPSEEK_API_KEY;
   if (!apiKey) {
-    throw new Error('缺少 DEEPSEEK_API_KEY。请用 `npx tsx --env-file=.env src/cli.ts` 运行。');
+    throw new Error(
+      '缺少 DEEPSEEK_API_KEY。请把它设为环境变量，或写入：\n' +
+      `  ${userEnvFile()}\n` +
+      '（文件格式为 KEY=value 一行。）',
+    );
   }
 
   // ---- 会话：续写被恢复的那个，或新开一个 ----
@@ -531,14 +548,36 @@ async function main(): Promise<void> {
     console.log(`${chalk.dim('会话')} ${chalk.cyan(session.sessionId)}`);
     console.log(
       chalk.dim('接着聊：') +
-      chalk.cyan(`tsx --env-file=.env src/cli.ts --resume=${session.sessionId}`),
+      chalk.cyan(`acode --resume=${session.sessionId}`),
     );
   }
 }
 
-// 只作为脚本运行时才启动，便于测试直接 import parseArgs
-const invokedDirectly = process.argv[1]?.replace(/\\/g, '/').endsWith('/src/cli.ts') ?? false;
-if (invokedDirectly) {
+/**
+ * 是否作为入口脚本直接被运行。
+ *
+ * 只作为脚本运行时才启动，便于测试直接 import 这里的视图函数。
+ *
+ * 必须按**真实路径**比较，不能拿文件名去匹配。原来那句
+ * `argv[1].endsWith('/src/cli.ts')` 只对源码路径成立：装成包之后入口是
+ * `dist/cli.js`，匹配失败会让 main() 静默不执行 —— 表现为「命令装上了，
+ * 敲下去什么都不做」，是最难排查的一种坏法。
+ *
+ * 两侧都取 realpath：全局安装的 shim 可能经符号链接才到达真正的文件。
+ */
+function isEntryPoint(): boolean {
+  const entry = process.argv[1];
+  if (entry === undefined) return false;
+
+  try {
+    return realpathSync(entry) === realpathSync(fileURLToPath(import.meta.url));
+  } catch {
+    // argv[1] 指向不存在的路径（例如 node -e）时按「不是入口」处理
+    return false;
+  }
+}
+
+if (isEntryPoint()) {
   main().catch((error) => {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;
