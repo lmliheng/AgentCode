@@ -1,6 +1,6 @@
 {
   "name": "@lmliheng/acode",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "coding Agent 对标 cloude code 的Agent应用",
   "bin": {
     "acode": "./dist/cli.js"
@@ -35,7 +35,6 @@
     "cli",
     "ReAct"
   ],
-
   "author": "lmliheng",
   "license": "MIT",
   "type": "module",

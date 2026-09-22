@@ -6,6 +6,7 @@
   "scripts": {
     "chat:llm": "tsx --env-file=.env src/LLM/chat.ts chat",
     "balance:llm": "tsx --env-file=.env src/LLM/chat.ts balance",
+    "jev:llm": "tsx --env-file=.env src/LLM/jev.ts jev",
     "tool_calling:agent": "tsx --env-file=.env src/MCP/ToolCalling/toolcalling.ts",
     "agent": "tsx --env-file=.env MyAgent/index.js ",
     "comsume:script": "tsx --env-file=.env scripts/ai_git.js comsume",
