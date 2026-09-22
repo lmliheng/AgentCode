@@ -105,6 +105,20 @@ export interface TokenUsageRecord {
     completionTokens: number;
     totalTokens: number;
     /**
+     * 命中前缀缓存的输入 token 累计。
+     *
+     * `null` 表示至今没有任何一轮的响应提供过这个数 —— 与「累计为 0」不同：
+     * 前者是拿不到，后者是确实一次都没命中。
+     */
+    cacheHitTokens: number | null;
+    /** 未命中前缀缓存的输入 token 累计。`null` 的含义同上 */
+    cacheMissTokens: number | null;
+    /**
+     * 每一轮的响应是否都提供了缓存命中量。
+     * false 表示上面两个值偏低而非准确 —— 缺失的轮次不计入而不是补 0。
+     */
+    cacheComplete: boolean;
+    /**
      * 每一轮模型响应是否都返回了用量。
      * false 表示累计值不完整 —— 缺失的轮次不计入而不是补 0。
      */
@@ -150,6 +164,7 @@ export interface Observation {
 export type StopReason =
     | { type: 'max_iterations'; limit: number } // 最大迭代
     | { type: 'max_tool_calls'; limit: number } // 工具调用次数
+    | { type: 'max_file_changes'; limit: number } // 文件变更数量
     | { type: 'timeout'; durationMs: number } // 响应超时
     | { type: 'task_completed' } // 任务完成
     | { type: 'user_interrupted' } // 用户打断

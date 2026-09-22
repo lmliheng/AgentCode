@@ -10,9 +10,9 @@
     "verify": "npm run typecheck && npm test",
     "test:bat": "tsx --env-file=.env src/test/task-runner.ts",
     "test:cli": "vitest run src/test/cli/cli.test.ts",
-    "cli": "tsx --env-file=.env src/test/cli.ts",
-    "cli:list":"tsx --env-file=.env src/test/cli.ts --list",
-    "cli:dev":"tsx --env-file=.env src/test/cli.ts --dev",
+    "cli": "tsx --env-file=.env src/cli.ts",
+    "cli:list":"tsx --env-file=.env src/cli.ts --list",
+    "cli:dev":"tsx --env-file=.env src/cli.ts --dev",
     
     "cli:build": "vite build",
     "cli:tui": "node --env-file=.env src/cli/dist/main.mjs"

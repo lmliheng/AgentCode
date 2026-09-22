@@ -90,4 +90,28 @@ describe('ReadFileTool', () => {
             expect(result.error).toContain('读取失败');
         });
     });
+
+    describe('display（执行摘要）', () => {
+        it('摘要报出读到的行区间与文件总行数', async () => {
+            const result = await tool.execute({ path: 'hello.txt' }, ctx);
+            expect(result.display).toBe('hello.txt 第 1–5 行 / 共 5 行');
+        });
+
+        it('指定行区间时摘要跟着变，且报的是实际返回的区间', async () => {
+            const result = await tool.execute({ path: 'hello.txt', start: 2, end: 4 }, ctx);
+            expect(result.display).toBe('hello.txt 第 2–4 行 / 共 5 行');
+        });
+
+        it('内容被截断时标注出来', async () => {
+            const result = await tool.execute({ path: 'large.txt', maxChars: 40 }, ctx);
+            expect(result.display).toBe('large.txt 第 1–200 行 / 共 300 行（内容已截断）');
+        });
+
+        it('起始行越过文件末尾时不说胡话', async () => {
+            // 此时请求区间本身是倒的（start 99 > end 5），照着请求区间拼会得到
+            // 「第 99–5 行」这种没有意义的摘要
+            const result = await tool.execute({ path: 'hello.txt', start: 99 }, ctx);
+            expect(result.display).toBe('hello.txt 第 99 行起无内容 / 共 5 行');
+        });
+    });
 });

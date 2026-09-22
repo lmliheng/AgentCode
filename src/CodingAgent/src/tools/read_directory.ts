@@ -24,6 +24,19 @@ interface DirEntry {
     children?: DirEntry[];     // 仅目录有此字段
 }
 
+/**
+ * 遍历过程中的计数，由 readDirRecursive 就地累加。
+ *
+ * 这些数字必须在这里数：`data.total` 只是起始目录的**顶层**条目数，
+ * 报不出「这个目录下多少个文件」；而 maxItems 撑满这件事在返回值里毫无痕迹。
+ */
+interface DirectoryWalkState {
+    /** 已计入的条目数，用于 maxItems 判满 */
+    count: number;
+    files: number;
+    directories: number;
+}
+
 export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
     name = 'read_directory';
     description = `读取目录结构，返回树形层级信息；需要按文件名筛选或要扁平列表时用 list_files，两者不要同时调用。
@@ -104,7 +117,11 @@ export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
                 };
             }
 
-            let itemCount = 0;
+            const state: DirectoryWalkState = {
+                count: 0,
+                files: 0,
+                directories: 0,
+            };
             const root = this.readDirRecursive(
                 startPath,
                 ctx.workspaceRoot,
@@ -112,7 +129,7 @@ export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
                 params.maxDepth ?? 1,
                 params.showHidden ?? false,
                 params.maxItems ?? 500,
-                { count: 0 }
+                state
             );
 
             if (!root) {
@@ -123,13 +140,22 @@ export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
                 };
             }
 
+            const basePath = params.path || '.';
+            // 判满口径与 list_files / search_code 一致（`>=`）。它偏保守：树里恰好
+            // 有 maxItems 个条目时并没有东西被丢掉，此时仍会标注。要做到精确，得把
+            // 预算检查挪到隐藏文件过滤之后、还要处理空子目录等情形 —— 不值得，而且
+            // 三个工具用不同口径比偶尔多标一个"可能"更糟。措辞因此不说满。
+            const truncated = state.count >= (params.maxItems ?? 500);
+
             return {
                 success: true,
                 data: {
-                    path: params.path || '.',
+                    path: basePath,
                     structure: root,
                     total: root.children?.length ?? 0,
                 },
+                display: `${basePath} / ${state.files} 个文件、${state.directories} 个目录`
+                    + (truncated ? '（已达上限，可能未列全）' : ''),
             };
         } catch (err) {
             return {
@@ -147,7 +173,7 @@ export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
         maxDepth: number,
         showHidden: boolean,
         maxItems: number,
-        state: { count: number }
+        state: DirectoryWalkState
     ): DirEntry | null {
         if (state.count >= maxItems) return null;
 
@@ -196,6 +222,7 @@ export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
 
                         entry.children!.push(childEntry);
                         state.count++;
+                        state.directories++;
                     } else if (stats.isFile()) {
                         entry.children!.push({
                             name: item,
@@ -204,6 +231,7 @@ export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
                             size: stats.size,
                         });
                         state.count++;
+                        state.files++;
                     }
                 } catch {
                     continue;

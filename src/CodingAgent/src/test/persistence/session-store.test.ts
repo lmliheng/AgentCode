@@ -224,7 +224,15 @@ describe('index.json 是派生产物', () => {
     store.append({
       type: 'stopped',
       payload: {
-        tokenUsage: { promptTokens: 0, completionTokens: 0, totalTokens: 0, complete: true },
+        tokenUsage: {
+          promptTokens: 0,
+          completionTokens: 0,
+          totalTokens: 0,
+          cacheHitTokens: null,
+          cacheMissTokens: null,
+          cacheComplete: true,
+          complete: true,
+        },
         iterationCount: 0,
         toolCallCount: 0,
         fileChanges: [],

@@ -109,4 +109,21 @@ export function parseNumber(str: string) {
             expect((result.data as any).truncated).toBe(true);
         });
     });
+
+    describe('display（执行摘要）', () => {
+        it('摘要报出模式与匹配数', async () => {
+            const result = await tool.execute({ pattern: 'function' }, ctx);
+            expect(result.display).toBe('function 匹配 4 处');
+        });
+
+        it('没有匹配时如实报 0 处', async () => {
+            const result = await tool.execute({ pattern: '找不到的词' }, ctx);
+            expect(result.display).toBe('找不到的词 匹配 0 处');
+        });
+
+        it('达到 maxResults 时标注可能未列全', async () => {
+            const result = await tool.execute({ pattern: 'function', maxResults: 2 }, ctx);
+            expect(result.display).toBe('function 匹配 2 处（已达上限，可能未列全）');
+        });
+    });
 });

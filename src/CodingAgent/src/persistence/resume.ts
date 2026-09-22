@@ -1,4 +1,4 @@
-// src/persistence/resume.ts
+
 //
 // 决定「`--resume` 该接到哪个会话」。
 //

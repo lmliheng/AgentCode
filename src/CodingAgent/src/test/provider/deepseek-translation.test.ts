@@ -3,9 +3,13 @@
 // Provider 边界翻译的定向用例。
 // 用 stub fetch 构造 DeepSeek 响应，避免依赖真实模型行为（并行调用、参数损坏
 // 这类情形无法可靠地从真实模型复现）。
+//
+// fixture 是流式 SSE：生产的默认路径就是流式（见 AgentProviderConfig.stream），
+// 这组用例必须跑在真正会走的那条路上。非流式兜底路径由
+// src/test/provider/deepseek-streaming.test.ts 的单条用例守着。
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DeepSeekProvider, DEFAULT_DEEPSEEK_BASE_URL } from '../../provider/deepseek.provider.js';
-import type { ToolDefinition } from '../../types/AgentProvider.js';
+import type { DeepSeekUsage, ToolDefinition } from '../../types/AgentProvider.js';
 import type { ChatMessage } from '../../types/Message.js';
 import type { Action, BatchAction } from '../../types/ReAct.js';
 
@@ -19,19 +23,83 @@ const readFileTool: ToolDefinition = {
     },
 };
 
-function deepSeekResponse(choices: unknown[], usage = { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 }) {
-    return {
-        ok: true,
-        status: 200,
-        json: async () => ({
+/** 一条 SSE 数据行；结尾的 \n\n 是 SSE 的行分隔 */
+function dataLine(payload: string): string {
+    return `data: ${payload}\n\n`;
+}
+
+/**
+ * 把一条 choice 的 message 拆成按协议到达的增量块。
+ *
+ * 工具调用的 name 与 arguments 刻意分成两片：真实流式响应就是这样到的，
+ * 分片拼不回来是个只会在这条路上暴露的 bug。
+ */
+function deltaChunks(message: Record<string, any>): Array<Record<string, unknown>> {
+    const deltas: Array<Record<string, unknown>> = [{ role: 'assistant', content: '' }];
+
+    if (typeof message.content === 'string' && message.content !== '') {
+        deltas.push({ content: message.content });
+    }
+
+    const calls: any[] = message.tool_calls ?? [];
+    calls.forEach((call, index) => {
+        const args: string = call.function.arguments;
+        deltas.push({
+            tool_calls: [{
+                index,
+                id: call.id,
+                type: 'function',
+                function: { name: call.function.name, arguments: args.slice(0, 5) },
+            }],
+        });
+        if (args.length > 5) {
+            deltas.push({ tool_calls: [{ index, function: { arguments: args.slice(5) } }] });
+        }
+    });
+
+    return deltas;
+}
+
+/** 把一次完整响应包成流式 SSE */
+function deepSeekResponse(
+    choices: unknown[],
+    usage: Partial<DeepSeekUsage> = { prompt_tokens: 10, completion_tokens: 5, total_tokens: 15 },
+): Response {
+    const chunk = (delta: Record<string, unknown>, finishReason: string | null) =>
+        dataLine(JSON.stringify({
             id: 'chatcmpl-test',
-            object: 'chat.completion',
+            object: 'chat.completion.chunk',
             created: 0,
             model: 'deepseek-chat',
-            choices,
+            choices: [{ index: 0, delta, finish_reason: finishReason }],
+        }));
+
+    const lines: string[] = [];
+    for (const choice of choices as Array<Record<string, any>>) {
+        for (const delta of deltaChunks(choice.message)) {
+            lines.push(chunk(delta, null));
+        }
+        // 用量只随最后一块到达
+        lines.push(dataLine(JSON.stringify({
+            id: 'chatcmpl-test',
+            object: 'chat.completion.chunk',
+            created: 0,
+            model: 'deepseek-chat',
+            choices: [{ index: 0, delta: {}, finish_reason: choice.finish_reason }],
             usage,
-        }),
-    } as unknown as Response;
+        })));
+    }
+    lines.push('data: [DONE]\n\n');
+
+    const encoder = new TextEncoder();
+    const body = new ReadableStream<Uint8Array>({
+        start(controller) {
+            for (const line of lines) controller.enqueue(encoder.encode(line));
+            controller.close();
+        },
+    });
+
+    return new Response(body, { status: 200 });
 }
 
 function toolCallChoice(calls: Array<{ id: string; name: string; args: string }>) {
@@ -259,5 +327,53 @@ describe('DeepSeekProvider 边界翻译', () => {
         expect(decision.paramsParseError).toBeTruthy();
         // 原始调用内容与失败原因都要留下，供运行时形成可读观察
         expect(decision.paramsParseError).toContain('{"path": "trunc');
+    });
+
+    // ---- 响应侧：前缀缓存命中量的透传 ----
+
+    it('响应里的缓存命中与未命中量透传为 cacheHitTokens / cacheMissTokens', async () => {
+        // 字段取值来自 2026-09-22 的真实响应（deepseek-flash）：两种形态同时出现
+        fetchMock.mockResolvedValue(
+            deepSeekResponse([textChoice('好的')], {
+                prompt_tokens: 814,
+                completion_tokens: 1,
+                total_tokens: 815,
+                prompt_tokens_details: { cached_tokens: 640 },
+                prompt_cache_hit_tokens: 640,
+                prompt_cache_miss_tokens: 174,
+            }),
+        );
+
+        const usage = (await provider.decide(userMessage, [readFileTool])).usage;
+
+        expect(usage?.promptTokens).toBe(814);
+        expect(usage?.cacheHitTokens).toBe(640);
+        expect(usage?.cacheMissTokens).toBe(174);
+    });
+
+    it('只提供 cached_tokens 时由输入量推出未命中量', async () => {
+        fetchMock.mockResolvedValue(
+            deepSeekResponse([textChoice('好的')], {
+                prompt_tokens: 1000,
+                completion_tokens: 1,
+                total_tokens: 1001,
+                prompt_tokens_details: { cached_tokens: 768 },
+            }),
+        );
+
+        const usage = (await provider.decide(userMessage, [readFileTool])).usage;
+
+        expect(usage?.cacheHitTokens).toBe(768);
+        expect(usage?.cacheMissTokens).toBe(232);
+    });
+
+    it('响应未提供缓存字段时两个值都缺省，而不是填 0', async () => {
+        fetchMock.mockResolvedValue(deepSeekResponse([textChoice('好的')]));
+
+        const usage = (await provider.decide(userMessage, [readFileTool])).usage;
+
+        // 「响应没给这个数」与「缓存一次都没命中」必须可区分
+        expect(usage?.cacheHitTokens).toBeUndefined();
+        expect(usage?.cacheMissTokens).toBeUndefined();
     });
 });

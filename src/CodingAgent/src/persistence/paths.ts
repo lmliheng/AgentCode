@@ -1,4 +1,4 @@
-// src/persistence/paths.ts
+
 //
 // 会话数据的落盘位置。
 //

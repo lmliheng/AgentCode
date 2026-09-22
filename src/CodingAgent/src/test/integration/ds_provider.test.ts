@@ -100,6 +100,24 @@ describe('DeepSeek Provider 集成测试', () => {
         }
     }, 30000);
 
+    it('流式增量按到达顺序回调，拼起来与完整正文一致', async () => {
+        const messages: ChatMessage[] = [
+            { role: 'user', content: '请用三句话说明 TypeScript 的类型系统解决了什么问题。' },
+        ];
+
+        const deltas: string[] = [];
+        const response = await provider.decide(messages, [], (delta) => {
+            if (delta.content) deltas.push(delta.content);
+        });
+
+        // 至少收到一块增量 —— 这是「请求真的走了流式」在真实 API 上的证据
+        expect(deltas.length).toBeGreaterThan(0);
+        // 增量按到达顺序拼起来必须等于完整正文：不等就意味着解析丢了段落
+        expect(deltas.join('')).toBe(response.rawContent);
+        // 用量只在最后一块到达，这里顺带钉住它确实到达了
+        expect(response.usage?.totalTokens).toBeGreaterThan(0);
+    }, 30000);
+
     it('应该能处理 API 错误（无效的 API Key）', async () => {
         const badProvider = new DeepSeekProvider({
             apiKey: 'invalid-key-12345',

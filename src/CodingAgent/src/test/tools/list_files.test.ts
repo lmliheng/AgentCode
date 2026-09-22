@@ -92,4 +92,26 @@ describe('ListFilesTool', () => {
             expect(entries.every((e: any) => e.type === 'file')).toBe(true);
         });
     });
+
+    describe('display（执行摘要）', () => {
+        it('摘要报出文件数与目录数', async () => {
+            const result = await tool.execute({}, ctx);
+            expect(result.display).toBe('. / 2 个文件、1 个目录');
+        });
+
+        it('递归时摘要跟着变', async () => {
+            const result = await tool.execute({ recursive: true }, ctx);
+            expect(result.display).toBe('. / 5 个文件、2 个目录');
+        });
+
+        it('过滤掉目录时如实报 0 个目录', async () => {
+            const result = await tool.execute({ includeDirs: false }, ctx);
+            expect(result.display).toBe('. / 2 个文件、0 个目录');
+        });
+
+        it('达到 maxResults 时标注可能未列全', async () => {
+            const result = await tool.execute({ maxResults: 1 }, ctx);
+            expect(result.display).toContain('已达上限，可能未列全');
+        });
+    });
 });

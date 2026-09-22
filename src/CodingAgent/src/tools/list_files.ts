@@ -117,14 +117,21 @@ export class ListFilesTool implements Tool<ListFilesParams> {
 
             this.walkDirectory(startPath, ctx.workspaceRoot, 0, maxDepth, params, entries);
 
+            const basePath = params.path || '.';
+            const truncated = entries.length >= (params.maxResults ?? 200);
+            const files = entries.filter(entry => entry.type === 'file').length;
+            const directories = entries.length - files;
+
             return {
                 success: true,
                 data: {
-                    path: params.path || '.',
+                    path: basePath,
                     entries,
                     total: entries.length,
-                    truncated: entries.length >= (params.maxResults ?? 200),
+                    truncated,
                 },
+                display: `${basePath} / ${files} 个文件、${directories} 个目录`
+                    + (truncated ? '（已达上限，可能未列全）' : ''),
             };
         } catch (err) {
             return {

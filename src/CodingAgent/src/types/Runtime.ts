@@ -1,5 +1,6 @@
 import type { PendingAction, ApprovalDecision, ApprovalPolicy } from './Tool.js'
 import type { ModelDecision, Observation, PlanState } from './ReAct.js'
+import type { StreamDelta } from './AgentProvider.js'
 import type { OutputBudget } from '../output-budget.js'
 import type { SessionEventInput } from '../persistence/events.js'
 
@@ -89,4 +90,15 @@ export interface AgentRuntimeConfig {
      * 进行的任务代价更大。原因是二者都可以被发现 —— 见 `getPersistenceStatus()`。
      */
     onSessionEvent?: (event: SessionEventInput) => void;
+
+    /**
+     * 模型增量的出口。提供时，主循环每轮把正文/思考的增量原样转给调用方。
+     *
+     * 与 `onSessionEvent` 分开是有意的：增量**不是状态迁移**，它既不进事件流、
+     * 也不进 `AgentRunState`，所以它没有"事实"的身份，绝不能靠事件流来承载 ——
+     * 那会让一份可能半截的中间产物混进唯一事实源里。
+     *
+     * 规划轮不转（那一轮的产品是计划，它的参数 JSON 没人要看）。
+     */
+    onStreamDelta?: (delta: StreamDelta) => void;
 }

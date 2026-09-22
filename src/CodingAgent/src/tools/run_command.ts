@@ -198,6 +198,10 @@ export class RunCommandTool implements Tool<RunCommandParams> {
                         stderr,
                     },
                     error: code !== 0 ? stderr || `退出码: ${code}` : '',
+                    // 只在这一条路径上给摘要：进程正常结束才拿得到真实退出码，
+                    // 超时 / 启动失败 / 被取消的情形由 error 说清，再报一次
+                    // 「exit -1」只是噪音。
+                    display: `exit ${code ?? -1} · 输出 ${countOutputLines(stdout)} 行`,
                 });
             });
 
@@ -215,6 +219,15 @@ export class RunCommandTool implements Tool<RunCommandParams> {
             });
         });
     }
+}
+
+/**
+ * 输出行数。末尾的连续换行不算一行 —— 命令输出几乎总以换行收尾，
+ * 照 `split('\n').length` 数会把每个命令都多报一行。
+ */
+function countOutputLines(text: string): number {
+    const trimmed = text.replace(/\n+$/, '');
+    return trimmed === '' ? 0 : trimmed.split('\n').length;
 }
 
 /**

@@ -146,6 +146,33 @@ console.log(greet('World'));
         expect((finalDecision as any).answer).toBe('已完成 greet.ts 的空值保护改造');
     });
 
+    it('把工具的执行摘要记进观察结果', async () => {
+        const responses: ModelResponse[] = [
+            wrapDecision({
+                type: 'Action',
+                thought: '先看看 greet.ts',
+                tool: 'read_file',
+                params: { path: 'src/greet.ts' },
+            }),
+            wrapDecision({ type: 'Final', thought: '完成', answer: '完成' }),
+        ];
+
+        const mockProvider = new MockProvider(responses);
+        runtime = new AgentRuntime(mockProvider, [new ReadFileTool()], {
+            workspacePath: workspaceDir,
+            maxIterations: 5,
+        });
+
+        const { state } = await runtime.run('看看 greet.ts');
+
+        // executeAction 是逐字段重建观察结果的，工具新产出的字段漏带就会在这里暴露。
+        // 期望值拼自 data：本用例管的是连通性（摘要能否落进观察记录），
+        // 措辞由 read_file 自己的用例钉住。
+        const { display, data } = state.observations[0]!.result;
+        const { totalLines, returnedLines } = data as { totalLines: number; returnedLines: number };
+        expect(display).toBe(`src/greet.ts 第 1–${returnedLines} 行 / 共 ${totalLines} 行`);
+    });
+
     it('应该在工具调用失败时让模型重试', async () => {
         const responses: ModelResponse[] = [
             wrapDecision({

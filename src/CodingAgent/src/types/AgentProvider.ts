@@ -13,6 +13,14 @@ export interface AgentProviderConfig {
     maxTokens?: number;
     temperature?: number;
     timeout?: number;
+    /**
+     * 是否请求流式响应，默认 true。
+     *
+     * 关掉它只是兜底：流式与整包响应在协议上是两条不同的路（SSE 分块 vs 一个
+     * JSON），出问题时需要能退回已验证的那条。两条路产出的 `ModelResponse`
+     * 完全相同，所以调用方不必知道自己走的是哪条。
+     */
+    stream?: boolean;
 }
 
 
@@ -39,7 +47,23 @@ export const BATCH_TOOL = 'batch'
 
 
 /**
- * @统一抽象响应 
+ * 流式响应的单块增量。
+ *
+ * 只带增量文本，不带位置与序号：调用方拿到就直接写出去，不必知道 SSE 的分包边界
+ * （一块可能只有半个汉字，也可能同时横跨多个字段）。
+ *
+ * 思考链与正文分开而不是合成一个字段 —— 它们在界面上是两个区域，合起来就还原不了。
+ */
+export interface StreamDelta {
+    /** 正文增量（最终答复，或工具调用轮里的说明文字） */
+    content?: string;
+    /** 思考链增量（thinking 模式才有；deepseek-chat 通常不返回） */
+    reasoningContent?: string;
+}
+
+
+/**
+ * @统一抽象响应
  */
 export interface ModelResponse {
     decision: ModelDecision;
@@ -57,6 +81,15 @@ export interface TokenUsage {
     promptTokens: number;
     completionTokens: number;
     totalTokens: number;
+    /**
+     * 命中前缀缓存的输入 token 数。
+     *
+     * 省略（而不是填 0）表示响应没提供这个数 —— 「未命中」与「不知道」不能混同，
+     * 混同会让「缓存一点没命中」和「缓存信息拿不到」在展示上长得一模一样。
+     */
+    cacheHitTokens?: number;
+    /** 未命中前缀缓存的输入 token 数。省略的含义同上 */
+    cacheMissTokens?: number;
     [key: string]: unknown;
 }
 
@@ -77,8 +110,17 @@ export interface AgentProvider {
     /**
      * 发送消息给模型并获取结构化的决策
      * 加tools
+     *
+     * @param onDelta 增量回调。提供时，模型每产出一段正文或思考内容就回调一次。
+     *   它是纯粹的旁路通知，不参与决策构造 —— 无论给不给，返回值都必须是完整的
+     *   `ModelResponse`。所以「是否流式」由配置决定，不由这个回调有没有来决定，
+     *   否则生产与测试会跑在两条不同的路上。
      */
-    decide(messages: ChatMessage[], tools: ToolDefinition[]): Promise<ModelResponse>;
+    decide(
+        messages: ChatMessage[],
+        tools: ToolDefinition[],
+        onDelta?: (delta: StreamDelta) => void,
+    ): Promise<ModelResponse>;
 
     /**
      * 更新配置（运行时切换模型时使用）
@@ -124,9 +166,16 @@ export interface DeepSeekUsage {
     // 提示词token消耗量细节
     prompt_tokens_details?: {
         cached_tokens?: number
-        prompt_cache_hit_tokens?: number
-        prompt_cache_miss_tokens?: number
     }
+    /**
+     * 前缀缓存命中 / 未命中的输入量。
+     *
+     * 实测（2026-09-22，deepseek-flash）与 `prompt_tokens_details.cached_tokens`
+     * 同时返回、取值一致，且满足 hit + miss === prompt_tokens；命中按 64 token 的块
+     * 对齐（输入 814 + 固定前缀，第二次命中 640）。
+     */
+    prompt_cache_hit_tokens?: number
+    prompt_cache_miss_tokens?: number
     completion_tokens_details?: {
         reasoning_tokens?: number
     }
@@ -144,6 +193,57 @@ export interface DeepSeekToolCall {
         name: string;
         arguments: string;
     };
+}
+
+/**
+ * @deepseek 流式响应的单块（object: 'chat.completion.chunk'）
+ *
+ * 与非流式 `DeepSeekResponse` 的差别是两处：`choices[].message` 换成
+ * `choices[].delta`，以及工具调用按 `index` 分片到达 —— `arguments` 是逐段
+ * 拼起来的字符串，不能逐片 `JSON.parse`。
+ */
+export interface DeepSeekChunk {
+    id?: string
+    object: 'chat.completion.chunk'
+    created?: number
+    model?: string
+    choices: DeepSeekChunkChoice[]
+    /**
+     * 用量只在最后一块到达。实测（2026-09-22，官方流式响应样例）DeepSeek
+     * 默认就带，不需要像 OpenAI 那样显式传 `stream_options.include_usage`。
+     */
+    usage?: DeepSeekUsage
+}
+
+export interface DeepSeekChunkChoice {
+    index: number
+    delta: DeepSeekDelta
+    finish_reason: DeepSeekChoice['finish_reason']
+}
+
+/** 增量块里的消息片段：除 tool_calls 外都是整值，只有它是碎的 */
+export interface DeepSeekDelta {
+    role?: 'assistant' | null
+    content?: string | null
+    reasoning_content?: string | null
+    tool_calls?: DeepSeekDeltaToolCall[]
+}
+
+/**
+ * 分片形态的工具调用。
+ *
+ * `index` 是把碎片拼回同一次调用的唯一依据。同一块里通常只有部分字段：
+ * `arguments` 要一路累加，而 `id` / `name` 是整体赋值 —— 累加会在服务端重发
+ * 整值时把名字拼重（照 openai-node 的 accumulateChatCompletion）。
+ */
+export interface DeepSeekDeltaToolCall {
+    index: number
+    id?: string
+    type?: 'function'
+    function?: {
+        name?: string
+        arguments?: string
+    }
 }
 /**
  * @Tool定义类型

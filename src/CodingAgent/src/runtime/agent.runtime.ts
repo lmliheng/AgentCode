@@ -208,7 +208,15 @@ export class AgentRuntime {
                 const toolDefinitions = this.buildToolDefinitions();
 
                 // 3.2 让模型决策
-                const response = await this.provider.decide(messages, toolDefinitions);
+                //
+                // 增量只在主循环里转出去：这一轮的产出是给人看的答复或动作，
+                // 而规划轮（createInitialPlan）的产出是计划，流出来的只是
+                // request_replan 的参数 JSON，没人要看。
+                const response = await this.provider.decide(
+                    messages,
+                    toolDefinitions,
+                    this.config.onStreamDelta,
+                );
                 const decision = response.decision;
 
                 // 3.3 记录用量与当前上下文大小
@@ -342,6 +350,9 @@ export class AgentRuntime {
                 promptTokens: 0,
                 completionTokens: 0,
                 totalTokens: 0,
+                cacheHitTokens: null,
+                cacheMissTokens: null,
+                cacheComplete: true,
                 complete: true,
             },
             // 尚未发起模型请求，当前上下文大小未知（不是 0）
@@ -362,6 +373,9 @@ export class AgentRuntime {
      * 累计用量缺失时不补 0，而是把累计值标记为不完整。
      * 当前上下文大小优先取模型响应的真实输入量；缺失时按字符数粗略推算，
      * 并明确标注为「估算」—— 实测与估算的可信度不同，不得混同。
+     *
+     * 缓存命中与未命中量同样累加：它们是累计输入量的**子集分解**
+     * （hit + miss === promptTokens），不是并列的第三、第四个口径，相加会重复计数。
      */
     private recordUsage(usage: TokenUsage | undefined, messages: ChatMessage[]): void {
         const measuredPrompt = usage?.promptTokens;
@@ -370,8 +384,16 @@ export class AgentRuntime {
             this.state.tokenUsage.promptTokens += usage.promptTokens;
             this.state.tokenUsage.completionTokens += usage.completionTokens;
             this.state.tokenUsage.totalTokens += usage.totalTokens;
+            this.state.tokenUsage.cacheHitTokens =
+                accumulateTokenCount(this.state.tokenUsage.cacheHitTokens, usage.cacheHitTokens);
+            this.state.tokenUsage.cacheMissTokens =
+                accumulateTokenCount(this.state.tokenUsage.cacheMissTokens, usage.cacheMissTokens);
+            if (usage.cacheHitTokens === undefined || usage.cacheMissTokens === undefined) {
+                this.state.tokenUsage.cacheComplete = false;
+            }
         } else {
             this.state.tokenUsage.complete = false;
+            this.state.tokenUsage.cacheComplete = false;
         }
 
         if (typeof measuredPrompt === 'number' && measuredPrompt > 0) {
@@ -505,7 +527,7 @@ export class AgentRuntime {
         // 5. 检查文件变更数量
         if (this.state.fileChanges.length >= this.config.maxFileChanges) {
             this.state.stopReason = {
-                type: 'max_iterations', // 复用此类型表示文件变更过多
+                type: 'max_file_changes',
                 limit: this.config.maxFileChanges,
             };
             return true;
@@ -754,12 +776,16 @@ export class AgentRuntime {
             // 8. 记录观察结果
             //    action 记 effective：轨迹里应当能看到真正执行的是哪个工具，
             //    而不是笼统的 tool_call（PRD 第 9 节的观察体积分析依赖这一点）。
+            //
+            //    result 是逐字段重建的，不是把工具返回值原样放进来 —— 所以工具新
+            //    产出的字段必须在这里显式带上，漏掉就是静默丢掉（display 即如此）。
             const observation: Observation = {
                 action: effective,
                 result: {
                     success: result.success,
                     data: result.data,
                     error: result.error || '',
+                    ...(result.display !== undefined ? { display: result.display } : {}),
                 },
                 timestamp: Date.now(),
             };
@@ -1592,6 +1618,16 @@ function messageCharCount(message: ChatMessage): number {
  */
 function estimateTokensFromChars(chars: number): number {
     return Math.ceil(chars / 4);
+}
+
+/**
+ * 累加一项可缺省的 token 度量。
+ *
+ * 缺省时保持原值而不是加 0：补 0 会把「这一轮没报这个数」变成「这一轮报了 0」，
+ * 让累计值看起来完整而实际偏低。调用方另行标记不完整。
+ */
+function accumulateTokenCount(current: number | null, delta: number | undefined): number | null {
+    return typeof delta === 'number' ? (current ?? 0) + delta : current;
 }
 
 /**

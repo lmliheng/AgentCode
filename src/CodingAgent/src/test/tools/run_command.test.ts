@@ -65,6 +65,15 @@ describe('RunCommandTool', () => {
             expect((result.data as any).exitCode).toBe(1);
         });
 
+        it('摘要报出退出码与输出行数', async () => {
+            const ok = await tool.execute({ command: 'echo hello' }, ctx);
+            expect(ok.display).toBe('exit 0 · 输出 1 行');
+
+            // 失败命令同样给摘要：exit 1 正是要看的信息，错误文案另说
+            const failed = await tool.execute({ command: 'exit 1' }, ctx);
+            expect(failed.display).toBe('exit 1 · 输出 0 行');
+        });
+
         it('应该拒绝未授权的命令', async () => {
             const rejectCtx: ToolContext = {
                 ...ctx,
@@ -73,6 +82,8 @@ describe('RunCommandTool', () => {
             const result = await tool.execute({ command: 'echo hello' }, rejectCtx);
             expect(result.success).toBe(false);
             expect(result.error).toContain('取消');
+            // 命令根本没跑，没有执行摘要可报 —— 由 error 说清
+            expect(result.display).toBeUndefined();
         });
 
         it('应该在超时后杀掉命令，并回报已捕获的输出', async () => {
@@ -83,6 +94,8 @@ describe('RunCommandTool', () => {
             expect(result.success).toBe(false);
             expect(result.error).toContain('命令超时');
             expect((result.data as any).stdout).toContain('1');
+            // 超时属于「进程没能正常结束」，退出码是假的 -1，不报摘要
+            expect(result.display).toBeUndefined();
         }, 15000);
 
         it('应该在未超时时正常返回', async () => {

@@ -90,4 +90,43 @@ describe('ReadDirectoryTool', () => {
             expect(names).toContain('.gitignore');
         });
     });
+
+    describe('display（执行摘要）', () => {
+        // 摘要里的数字必须够数才报得出来：data.total 只是顶层条目数，
+        // 「这个目录下多少个文件」只能靠遍历时就地数。
+
+        it('报出实际读到的文件数与目录数', async () => {
+            // 默认 maxDepth=1：起始目录的条目，外加每个子目录展开一层
+            const result = await tool.execute({}, ctx);
+            expect(result.display).toBe('. / 2 个文件、2 个目录');
+        });
+
+        it('层数变化时摘要跟着变，不报没读到的部分', async () => {
+            const deeper = await tool.execute({ maxDepth: 2 }, ctx);
+            expect(deeper.display).toBe('. / 4 个文件、2 个目录');
+        });
+
+        it('隐藏文件默认不计入，显式要求时才计入', async () => {
+            const withHidden = await tool.execute({ showHidden: true }, ctx);
+            expect(withHidden.display).toBe('. / 3 个文件、2 个目录');
+        });
+
+        it('摘要用调用时的 path 作为主体', async () => {
+            const result = await tool.execute({ path: 'src' }, ctx);
+            expect(result.display).toBe('src / 3 个文件、1 个目录');
+        });
+
+        it('达到 maxItems 时标注可能未列全', async () => {
+            const result = await tool.execute({ maxItems: 1 }, ctx);
+
+            expect(result.success).toBe(true);
+            // 只断言标注存在：条目参与是 readdirSync 的顺序，具体数字不稳定
+            expect(result.display).toContain('已达上限，可能未列全');
+        });
+
+        it('没有触发上限时不标注', async () => {
+            const result = await tool.execute({}, ctx);
+            expect(result.display).not.toContain('已达上限');
+        });
+    });
 });

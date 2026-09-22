@@ -91,9 +91,18 @@ export class ReadFileTool implements Tool<ReadFileParams> {
         if (truncated) {
             result = result.slice(0, maxChars) + '\n\n...（已截断）';
         }
+
+        const returnedLines = slice.length;
+        // 摘要报「实际返回的」区间，而不是请求的区间：start 越过文件末尾时请求区间
+        // 本身是倒的（start > end），照着拼会得到「第 500–300 行」这种胡话。
+        const range = returnedLines > 0
+            ? `第 ${start}–${start + returnedLines - 1} 行`
+            : `第 ${start} 行起无内容`;
+
         return {
             success: true,
-            data: { path: params.path, start, end, totalLines, returnedLines: slice.length, truncated, content: result },
+            data: { path: params.path, start, end, totalLines, returnedLines, truncated, content: result },
+            display: `${params.path} ${range} / 共 ${totalLines} 行${truncated ? '（内容已截断）' : ''}`,
         };
     }
 

@@ -137,14 +137,18 @@ export class SearchCodeTool implements Tool<SearchCodeParams> {
                 results
             );
 
+            const truncated = results.length >= (params.maxResults ?? 50);
+
             return {
                 success: true,
                 data: {
                     pattern: params.pattern,
                     matches: results,
                     total: results.length,
-                    truncated: results.length >= (params.maxResults ?? 50),
+                    truncated,
                 },
+                display: `${params.pattern} 匹配 ${results.length} 处`
+                    + (truncated ? '（已达上限，可能未列全）' : ''),
             };
         } catch (err) {
             return {

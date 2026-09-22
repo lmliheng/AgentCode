@@ -5,6 +5,10 @@ import type {
     DeepSeekResponse,
     DeepSeekMessage,
     DeepSeekToolCall,
+    DeepSeekUsage,
+    DeepSeekChunk,
+    DeepSeekChoice,
+    StreamDelta,
     ToolDefinition,
     DeepseekToolDefinition,
     JsonSchemaObject,
@@ -110,6 +114,7 @@ export class DeepSeekProvider implements AgentProvider {
             baseUrl: DEFAULT_DEEPSEEK_BASE_URL,
             temperature: 0.2,
             maxTokens: 4096,
+            stream: true,
             ...config,
         };
     }
@@ -121,10 +126,18 @@ export class DeepSeekProvider implements AgentProvider {
     /**
      * 请求模型做一次决策。
      *
+     * 流式与否在协议上不同、在结果上相同：两条路都必须产出同一个
+     * `ModelResponse`（见 `consumeStream`）。
+     *
      * @param messages 对话消息序列
      * @param tools 当前可执行的工具；为空时不声明任何工具，控制流入口也不声明
+     * @param onDelta 增量回调，见 `AgentProvider.decide`
      */
-    async decide(messages: ChatMessage[], tools: ToolDefinition[] = []): Promise<ModelResponse> {
+    async decide(
+        messages: ChatMessage[],
+        tools: ToolDefinition[] = [],
+        onDelta?: (delta: StreamDelta) => void,
+    ): Promise<ModelResponse> {
         // 工具声明只在存在可执行工具时才有意义：没有工具可用时，
         // 声明「重新规划」「批量动作」入口没有语义。
         const declaredTools = tools.length > 0 ? [...tools, ...CONTROL_FLOW_TOOLS] : []
@@ -142,11 +155,30 @@ export class DeepSeekProvider implements AgentProvider {
         if (declaredTools.length > 0) {
             requestBody.tools = declaredTools.map(tool => this.toDeepseekTool(tool));
         }
+        if (this.config.stream) {
+            requestBody.stream = true;
+        }
 
         // 超时控制
         const timeoutMs = this.config.timeout ?? 30000;
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        let timeoutMessage = `DeepSeek 请求超时（${timeoutMs}ms）`;
+        let timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+
+        /**
+         * 流式下把计时器往后推。
+         *
+         * 一个固定截止时间对流式不成立：长回答必然超过它，于是「请求超时」会把
+         * 正常的长输出当成故障掐掉。改成静默超时 —— 只要还在收到数据就重新计时，
+         * 真的不再有新数据时才中断。
+         *
+         * 只有 `consumeStream` 会调它，所以非流式那条路上的超时文案保持不变。
+         */
+        const armTimeout = (): void => {
+            clearTimeout(timeoutId);
+            timeoutMessage = `DeepSeek 流式响应中断（${timeoutMs}ms 内未收到新数据）`;
+            timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+        };
 
         try {
             const response = await fetch(this.config.baseUrl!, {
@@ -158,6 +190,17 @@ export class DeepSeekProvider implements AgentProvider {
                 body: JSON.stringify(requestBody),
                 signal: controller.signal,
             });
+
+            if (this.config.stream) {
+                // 流式下响应体是 SSE，不能当 JSON 解析；而错误响应仍是普通 JSON，
+                // 所以按状态码分流，而不是像非流式那样先 json() 再判断 ok。
+                if (!response.ok) {
+                    throw new Error(
+                        `DeepSeek 调用失败：${response.status} ${await readErrorDetail(response)}`
+                    );
+                }
+                return await this.consumeStream(response, onDelta, armTimeout);
+            }
 
             const data: DeepSeekResponse = await response.json();
 
@@ -175,6 +218,7 @@ export class DeepSeekProvider implements AgentProvider {
 
             const responseMessage = choice.message;
             const toolCalls = responseMessage.tool_calls ?? [];
+            const cache = readPromptCacheTokens(data.usage);
 
             return {
                 decision: toolCalls.length > 0
@@ -188,17 +232,172 @@ export class DeepSeekProvider implements AgentProvider {
                     promptTokens: data.usage.prompt_tokens,
                     completionTokens: data.usage.completion_tokens,
                     totalTokens: data.usage.total_tokens,
+                    ...(cache.hit !== undefined ? { cacheHitTokens: cache.hit } : {}),
+                    ...(cache.miss !== undefined ? { cacheMissTokens: cache.miss } : {}),
                 },
             };
 
         } catch (err: any) {
-            if (err.name === 'AbortError') {
-                throw new Error(`DeepSeek 请求超时（${timeoutMs}ms）`);
+            // 信号判断放在错误名之前：读流中途被 abort 时，底层抛出的往往不是
+            // AbortError（可能是 terminated 之类的传输层错误），只看错误名会把
+            // 一次超时报告成一个莫名其妙的中断。
+            if (controller.signal.aborted || err.name === 'AbortError') {
+                throw new Error(timeoutMessage);
             }
             throw err;
         } finally {
             clearTimeout(timeoutId);
         }
+    }
+
+    /**
+     * 消费 SSE 流，把分片重新拼成一份完整响应。
+     *
+     * 拼出来的形状与非流式完全一致，因此边界翻译（`translateToolCalls` /
+     * `toFinalDecision`）两条路共用同一份实现 —— 流式只改变「响应怎么取回来」，
+     * 不改变「响应是什么」。
+     */
+    private async consumeStream(
+        response: Response,
+        onDelta: ((delta: StreamDelta) => void) | undefined,
+        armTimeout: () => void,
+    ): Promise<ModelResponse> {
+        const body = response.body;
+        if (!body) {
+            throw new Error('DeepSeek 返回了流式响应但没有响应体');
+        }
+
+        const reader = body.getReader();
+        // 多字节字符会被切在分块之间，必须用流式解码器续着解：对每个分块
+        // 单独 toString() 会让切开的汉字变成乱码。
+        const decoder = new TextDecoder('utf-8');
+
+        let buffer = '';
+        let content = '';
+        let reasoning = '';
+        let finishReason: DeepSeekChoice['finish_reason'] = null;
+        let usage: DeepSeekUsage | undefined;
+        let modelName: string | undefined;
+        let done = false;
+
+        // 工具调用按 index 归并：一次调用可能横跨任意多块
+        const calls = new Map<number, {
+            index: number;
+            id: string;
+            name: string;
+            arguments: string;
+        }>();
+
+        const handleData = (payload: string): void => {
+            if (payload === '[DONE]') {
+                done = true;
+                return;
+            }
+
+            let chunk: DeepSeekChunk;
+            try {
+                chunk = JSON.parse(payload) as DeepSeekChunk;
+            } catch {
+                // 静默跳过会悄悄吞掉正文，宁可在这里明确失败
+                throw new Error(
+                    `DeepSeek 流式响应含无法解析的数据块: ${payload.slice(0, 200)}`
+                );
+            }
+
+            if (chunk.model) modelName = chunk.model;
+            if (chunk.usage) usage = chunk.usage;
+
+            const choice = chunk.choices?.[0];
+            if (!choice) return;
+            if (choice.finish_reason) finishReason = choice.finish_reason;
+
+            const delta = choice.delta;
+            if (!delta) return;
+
+            if (typeof delta.reasoning_content === 'string' && delta.reasoning_content !== '') {
+                reasoning += delta.reasoning_content;
+                onDelta?.({ reasoningContent: delta.reasoning_content });
+            }
+            if (typeof delta.content === 'string' && delta.content !== '') {
+                content += delta.content;
+                onDelta?.({ content: delta.content });
+            }
+            for (const fragment of delta.tool_calls ?? []) {
+                const entry = calls.get(fragment.index)
+                    ?? { index: fragment.index, id: '', name: '', arguments: '' };
+                if (fragment.id) entry.id = fragment.id;
+                if (fragment.function?.name) entry.name = fragment.function.name;
+                if (fragment.function?.arguments) entry.arguments += fragment.function.arguments;
+                calls.set(fragment.index, entry);
+            }
+        };
+
+        const handleLine = (rawLine: string): void => {
+            const line = rawLine.endsWith('\r') ? rawLine.slice(0, -1) : rawLine;
+            if (line === '' || line.startsWith(':')) return;   // 空行分隔与 keep-alive 注释
+            if (!line.startsWith('data:')) return;
+            handleData(line.slice('data:'.length).trim());
+        };
+
+        while (!done) {
+            const { value, done: streamEnded } = await reader.read();
+            if (streamEnded) break;
+            armTimeout();
+
+            buffer += decoder.decode(value, { stream: true });
+
+            // SSE 以行为单位；最后一段可能是不完整的行，留在缓冲里等下一块
+            const lines = buffer.split('\n');
+            buffer = lines.pop() ?? '';
+
+            for (const line of lines) {
+                handleLine(line);
+                if (done) break;
+            }
+        }
+
+        // 收尾：最后一行可能没有行尾符（例如结尾直接是 `data: [DONE]`）
+        if (!done && buffer !== '') handleLine(buffer);
+
+        const toolCalls: DeepSeekToolCall[] = [...calls.values()]
+            .sort((a, b) => a.index - b.index)
+            .map(call => ({
+                id: call.id,
+                type: 'function',
+                function: { name: call.name, arguments: call.arguments },
+            }));
+
+        const message: DeepSeekMessage = {
+            role: 'assistant',
+            content: content === '' ? null : content,
+            ...(reasoning !== '' ? { reasoning_content: reasoning } : {}),
+            ...(toolCalls.length > 0 ? { tool_calls: toolCalls } : {}),
+        };
+
+        const cache = usage ? readPromptCacheTokens(usage) : {};
+
+        return {
+            decision: toolCalls.length > 0
+                ? this.translateToolCalls(toolCalls, message)
+                : this.toFinalDecision(message),
+            rawContent: content,
+            reasoningContent: reasoning,
+            ...(finishReason !== null ? { finishReason } : {}),
+            ...(modelName !== undefined ? { modelName } : {}),
+            // 用量只在最后一块到达。拿不到时保持缺省，而不是填 0 ——
+            // 「响应没给这个数」与「这次一分钱没花」必须可区分。
+            ...(usage !== undefined
+                ? {
+                    usage: {
+                        promptTokens: usage.prompt_tokens,
+                        completionTokens: usage.completion_tokens,
+                        totalTokens: usage.total_tokens,
+                        ...(cache.hit !== undefined ? { cacheHitTokens: cache.hit } : {}),
+                        ...(cache.miss !== undefined ? { cacheMissTokens: cache.miss } : {}),
+                    },
+                }
+                : {}),
+        };
     }
 
     // ------------------------------------------------------------------
@@ -404,4 +603,41 @@ export class DeepSeekProvider implements AgentProvider {
 
         return formatted;
     }
+}
+
+/**
+ * 取错误响应的正文，塞进报错信息里。
+ *
+ * 流式路径上响应体是 SSE，不能像非流式那样先 `json()` 拿一份结构化错误，
+ * 所以这里退化成读文本。读不出来时返回空串 —— 报错信息里少一段细节，
+ * 总好过因为读不出正文而把真正的状态码丢掉。
+ */
+async function readErrorDetail(response: Response): Promise<string> {
+    try {
+        return await response.text();
+    } catch {
+        return '';
+    }
+}
+
+/**
+ * 取响应里的前缀缓存命中 / 未命中输入量。
+ *
+ * 两种形态实测同时出现（2026-09-22，deepseek-flash）：顶层的
+ * `prompt_cache_hit_tokens` / `prompt_cache_miss_tokens`，以及 OpenAI 兼容的
+ * `prompt_tokens_details.cached_tokens`。两个位置都看，取到即止。
+ *
+ * 未命中量缺失时由 `prompt_tokens - hit` 推出：该等式按定义成立，推算出来的值与
+ * 响应直接给出的一样准。但只在「命中量已知」时才推 —— 两者都取不到时必须保持
+ * 缺省，否则就把「不知道」写成了「未命中」。
+ */
+function readPromptCacheTokens(usage: DeepSeekUsage): { hit?: number; miss?: number } {
+    const hit = usage.prompt_cache_hit_tokens ?? usage.prompt_tokens_details?.cached_tokens;
+    const miss = usage.prompt_cache_miss_tokens
+        ?? (typeof hit === 'number' ? Math.max(0, usage.prompt_tokens - hit) : undefined);
+
+    return {
+        ...(typeof hit === 'number' ? { hit } : {}),
+        ...(typeof miss === 'number' ? { miss } : {}),
+    };
 }
