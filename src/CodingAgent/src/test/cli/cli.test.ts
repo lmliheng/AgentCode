@@ -8,7 +8,7 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { parseArgs } from './cli.js';
+import { parseArgs } from '../../utils/ParseArgs.js';
 
 describe('会话 CLI 的参数解析', () => {
   it('空参数时用当前目录与默认值', () => {

@@ -570,27 +570,43 @@ export class AgentRuntime {
                 return false;
         }
     }
+
+
+    
     private async executeBatchActions(batch: ModelDecision & { type: 'BatchAction' }): Promise<boolean> {
-        const tasks = batch.actions.map((subAction) => {
-            const decision: Action = {
-                type: 'Action',
-                tool: subAction.tool,
-                params: subAction.params,
-                thought: subAction.thought || '',
-                ...(subAction.toolCallId !== undefined ? { toolCallId: subAction.toolCallId } : {}),
-            };
-            return () => this.executeAction(decision);
-        });
+        const decisions: Action[] = batch.actions.map((subAction) => ({
+            type: 'Action',
+            tool: subAction.tool,
+            params: subAction.params,
+            thought: subAction.thought || '',
+            ...(subAction.toolCallId !== undefined ? { toolCallId: subAction.toolCallId } : {}),
+        }));
+        const tasks = decisions.map((decision) => () => this.executeAction(decision));
 
         const results: boolean[] = [];
 
-        // 并发控制：每次最多跑 maxConcurrency 个
+        /**
+         * 批次里只要有一个动作需要审批，整批降为串行。
+         *
+         * 审批是「一次一问」的交互，而并发执行会让多个动作同时向交互层提问。而
+         * readline 在上一问未回答前不接受第二问（`[kQuestion]` 只重画当前提示、
+         * 不注册回调），被丢弃那一问的 promise 永不 settle，批次随之永久挂死 ——
+         * 没有超时兜底，也没有报错。串行执行让审批自然一次一问。
+         *
+         * 顺带消除「先读后写」类批次的观测失效：并发下 read 可能早于同批的 write
+         * 完成，模型拿到的是过期信息（run_test/PRD.md 第 9 节第 5 条）。
+         */
+        const concurrency = decisions.some((decision) => this.needsApproval(decision))
+            ? 1
+            : this.maxConcurrency;
+
+        // 并发控制：每次最多跑 concurrency 个
         const queue = [...tasks];
         const running: Promise<boolean>[] = [];
 
         while (queue.length > 0 || running.length > 0) {
             // 填满并发槽位
-            while (running.length < this.maxConcurrency && queue.length > 0) {
+            while (running.length < concurrency && queue.length > 0) {
                 const task = queue.shift()!;
                 const promise = task().then((shouldContinue) => {
                     results.push(shouldContinue);
@@ -612,6 +628,36 @@ export class AgentRuntime {
 
         // 检查是否所有任务都允许继续
         return results.every(Boolean);
+    }
+
+    /**
+     * 这个动作执行时是否会向交互层申请审批。
+     *
+     * `permissions.requiresApproval` 是工具实例上的静态布尔、与参数无关，所以这里
+     * 不必做参数校验。但**必须解开 `tool_call` 信封**：默认 eager 配置下被延迟的
+     * 工具里，apply_diff / delete_file / move_file / git_operation 四个都需要审批，
+     * 而信封 tool_call 自身的 requiresApproval 是 false —— 只看 action.tool 会把
+     * 它们误判成无需审批，审批并发的死锁就换个入口原样复现。
+     *
+     * 判错的两个方向代价不对称：判成「需要」只是让批次少一点并发；判成「不需要」
+     * 会让审批重新并发。
+     */
+    private needsApproval(action: Action): boolean {
+        // 参数都没解析出来，只会留下失败观察，走不到审批
+        if (action.paramsParseError) {
+            return false;
+        }
+
+        let toolName = action.tool;
+        if (toolName === TOOL_CALL) {
+            const resolution = resolveDeferredToolCall(action.params, this.tools);
+            if (!resolution.ok) {
+                return false;   // 解不开的动作同样只留下失败观察
+            }
+            toolName = resolution.toolName;
+        }
+
+        return this.tools.get(toolName)?.permissions.requiresApproval === true;
     }
 
     /**
