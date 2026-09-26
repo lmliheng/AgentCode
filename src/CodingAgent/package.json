@@ -1,6 +1,6 @@
 {
   "name": "@lmliheng/acode",
-  "version": "1.0.3",
+  "version": "1.0.5",
   "description": "coding Agent 对标 cloude code 的Agent应用",
   "bin": {
     "acode": "./dist/cli.js"
@@ -25,10 +25,9 @@
     "cli": "tsx --env-file=.env src/cli.ts",
     "cli:list": "tsx --env-file=.env src/cli.ts --list",
     "cli:dev": "tsx --env-file=.env src/cli.ts --dev",
-    "cli:build": "vite build",
     "cli:tui": "node --env-file=.env src/cli/dist/main.mjs",
-    "build:cli": "vite build --config vite.cli.config.ts",
-    "p": "npm version patch && npm publish --access public --registry=https://registry.npmjs.org/"
+    "cli:build": "vite build --config vite.cli.config.ts",
+    "p": "vite build --config vite.cli.config.ts && npm version patch && npm publish --access public --registry=https://registry.npmjs.org/"
   },
   "keywords": [
     "agent",
@@ -50,6 +49,9 @@
     "vue": "^3.5.43"
   },
   "dependencies": {
-    "chalk": "^6.0.0"
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@google/generative-ai": "^0.24.1",
+    "chalk": "^6.0.0",
+    "openai": "^7.23.0"
   }
 }

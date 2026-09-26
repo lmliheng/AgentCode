@@ -14,7 +14,7 @@
 import { clearScreenDown, cursorTo, emitKeypressEvents, moveCursor } from 'node:readline';
 import { stdin, stdout } from 'node:process';
 
-import { commandQuery, matchCommands, renderSuggestionList } from './slash-commands.js';
+import { commandQuery, matchCommands, renderSuggestionList, selectedCommand } from './slash-commands.js';
 import { charWidth, terminalWidth } from './terminal-width.js';
 
 import type { Key } from 'node:readline';
@@ -126,7 +126,8 @@ function nextCharIndex(text: string, index: number): number {
  * `mask` 只影响屏幕上显示什么，不影响返回值。
  *
  * 按键语义：
- *   Enter      提交整行；菜单开着时先用高亮项补全命令名（`/qui` + Enter 等于 `/quit`）
+ *   Enter      提交整行；菜单开着时先取高亮项（`/qui` + Enter 等于 `/quit`，
+ *              只敲了一个 `/` 时高亮在第一条命令上，回车就执行它）
  *   Tab        把高亮项补进输入行（接参数的补成 `/name `，不接的补成 `/name`）
  *   ↑↓         移动菜单高亮（循环）
  *   Esc        收起菜单，输入保留；再动一下输入菜单就回来
@@ -225,8 +226,8 @@ export async function readLine(options: InputLineOptions): Promise<string> {
     };
 
     const complete = (): void => {
-      const command = menu.matches[menu.selected];
-      if (menu.dismissed || command === undefined) return;
+      const command = selectedCommand(menu.matches, menu.selected, menu.dismissed);
+      if (command === undefined) return;
 
       buffer = `/${command.name}${command.takesArg ? ' ' : ''}`;
       cursor = buffer.length;
@@ -234,9 +235,10 @@ export async function readLine(options: InputLineOptions): Promise<string> {
     };
 
     const submit = (): void => {
-      // 只敲了一个 `/`（query 为空）时不做补全：那时候高亮的是第一条命令，
-      // 拿它替掉用户只打了个头的输入太自作主张。Esc 收起菜单后同理。
-      const command = menu.dismissed || menu.query === '' ? undefined : menu.matches[menu.selected];
+      // 高亮项就是这一行的答案：`▸` 指着的命令名会替掉正在敲的前缀。
+      // 只敲了一个 `/` 时高亮在第一条命令上，回车也就执行它 —— 与 Tab 一致，
+      // 也与屏幕上的高亮一致；Esc 收起菜单后不再补全，那一行原样交回去。
+      const command = selectedCommand(menu.matches, menu.selected, menu.dismissed);
       if (command !== undefined) {
         buffer = `/${command.name}`;
         cursor = buffer.length;

@@ -14,6 +14,7 @@ import {
   parseCommand,
   renderCommandHelp,
   renderSuggestionList,
+  selectedCommand,
 } from '../../utils/slash-commands.js';
 
 import { displayWidth } from '../../utils/terminal-width.js';
@@ -246,6 +247,34 @@ describe('候选匹配', () => {
 
   it('匹配不上时返回空数组，菜单据此收起', () => {
     expect(matchCommands(SLASH_COMMANDS, 'zz')).toEqual([]);
+  });
+});
+
+describe('回车与 Tab 取哪一项', () => {
+  it('菜单开着就取高亮项，高亮在第几条就取第几条', () => {
+    const matches = SLASH_COMMANDS;
+
+    expect(selectedCommand(matches, 0, false)?.name).toBe('auth');
+    expect(selectedCommand(matches, 2, false)?.name).toBe('help');
+  });
+
+  it('只敲了一个 / 时也取高亮项，不做「空前缀就不补全」的特例', () => {
+    // 这一条正是「下拉框选不中」的回归点：菜单上 `▸` 指着第一条，回车却交出 `/`
+    const matches = matchCommands(SLASH_COMMANDS, commandQuery('/')!);
+
+    expect(selectedCommand(matches, 0, false)?.name).toBe('auth');
+  });
+
+  it('Esc 收起菜单后不取任何项，那一行原样交回去', () => {
+    expect(selectedCommand(SLASH_COMMANDS, 0, true)).toBeUndefined();
+  });
+
+  it('没有候选时取不到项，回车于是提交原样的输入', () => {
+    expect(selectedCommand([], 0, false)).toBeUndefined();
+  });
+
+  it('高亮下标越界时取不到项，不会掉出界线', () => {
+    expect(selectedCommand(SLASH_COMMANDS, SLASH_COMMANDS.length, false)).toBeUndefined();
   });
 });
 

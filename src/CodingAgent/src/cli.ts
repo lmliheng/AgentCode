@@ -648,6 +648,13 @@ async function main(): Promise<void> {
 
       if (line === '') continue;
 
+      // 光一个 `/` 既不是命令也不是任务：Esc 收起候选菜单后回车，交回来的就是它。
+      // 送给模型只会换来一句关于斜杠的胡话，而且照样计费。
+      if (line === '/') {
+        console.log(chalk.dim('单独一个 / 不构成命令：接着敲命令名，或用 ↑↓ 选择后再回车'));
+        continue;
+      }
+
       // 命令名不在表里的（例如 `/tmp/x 里有什么` 这种绝对路径）照常当任务送给模型
       const parsed = parseCommand(SLASH_COMMANDS, line);
       if (parsed !== null) {

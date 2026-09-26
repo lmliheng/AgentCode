@@ -20,8 +20,6 @@ import type { ModelDecision, Action, BatchAction, PlanStep } from '../types/ReAc
 /**
  * @Deepseek Provider
  *
- * 职责边界（见 design.md D1）：本类是「运行时内部决策词汇表」与「DeepSeek 原生
- * tools/tool_calls 协议」之间的翻译层。
  *   - 请求侧：把 ToolDefinition[] 翻译为原生 tools 声明下发
  *   - 响应侧：把原生 tool_calls 翻译为 Action / BatchAction / Final
  * 除此之外不做决策，运行时的循环、预算、审批都不在这里。
@@ -179,6 +177,7 @@ export class DeepSeekProvider implements AgentProvider {
             timeoutMessage = `DeepSeek 流式响应中断（${timeoutMs}ms 内未收到新数据）`;
             timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         };
+        
 
         try {
             const response = await fetch(this.config.baseUrl!, {

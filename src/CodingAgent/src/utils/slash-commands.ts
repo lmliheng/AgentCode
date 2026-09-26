@@ -201,6 +201,21 @@ export function matchCommands(
   return commands.filter((command) => command.name.toLowerCase().startsWith(lowered));
 }
 
+/**
+ * 菜单当前高亮的那一项；菜单收起（Esc）或没有候选时为空。
+ *
+ * Enter 与 Tab 都走这里：`▸` 指着哪一条，两个键就取哪一条。屏幕上的高亮是一句
+ * 承诺 —— 它指着 `/cd` 而回车却交出 `/`，用户看到的就是「下拉框选不中」。
+ * 只敲了一个 `/` 时高亮落在第一条命令上，也照取，不做特例（Tab 本来就是这么做的）。
+ */
+export function selectedCommand(
+  matches: readonly SlashCommand[],
+  selected: number,
+  dismissed: boolean,
+): SlashCommand | undefined {
+  return dismissed ? undefined : matches[selected];
+}
+
 export interface ParsedCommand {
   command: SlashCommand;
   /** 命令名之后的部分，去掉两端空白 */

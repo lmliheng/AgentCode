@@ -2,6 +2,7 @@ import type { AgentProvider, AgentProviderConfig, ModelResponse, DeepSeekRespons
 import { DeepSeekProvider } from './deepseek.provider.js'
 /**
  * 支持的 Provider 类型
+ * openai,authropic,genmini
  */
 export type ProviderType = 'openai' | 'deepseek';
 
