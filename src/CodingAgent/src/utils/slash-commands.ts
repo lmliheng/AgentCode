@@ -12,6 +12,18 @@ import chalk from 'chalk';
 
 import { displayWidth, truncateToWidth } from './terminal-width.js';
 
+/** 会话内可变的配置项。改它们只影响后续任务，不动已落盘的历史 */
+export interface SessionSettings {
+  model: string;
+  workspace: string;
+}
+
+export type WorkspaceSwitchResult =
+  | { ok: true; path: string }
+  | { ok: false; reason: string };
+
+export type SaveResult = { ok: true } | { ok: false; reason: string };
+
 /**
  * 命令执行时能拿到的外部能力。
  *
@@ -27,6 +39,26 @@ export interface SlashCommandHost {
   sessions: () => string;
   /** 完整用法（含本命令表） */
   usage: () => string;
+
+  /**
+   * 会话内可变的配置。
+   *
+   * 两项都是「本进程的意图」，不是运行状态：它们不进事件流，也不跨 `--resume`
+   * 恢复（模型名与工作区本来就由命令行参数给出）。所以直给一个可变对象，
+   * 不给每项配一对 getter/setter。
+   */
+  readonly state: SessionSettings;
+
+  /** 切换工作区：成功给出规范化后的路径，失败给出原因（不抛错） */
+  switchWorkspace: (path: string) => WorkspaceSwitchResult;
+
+  /** API Key 的现状（来源 + 配置位置），供 /auth 报告 */
+  apiKeyStatus: () => string;
+  /** 保存 API Key；失败时给出原因而不是抛错 */
+  saveApiKey: (key: string) => SaveResult;
+
+  /** 读一个不回显的值（API Key 之类） */
+  askSecret: (prompt: string) => Promise<string>;
 }
 
 export interface SlashCommand {
@@ -52,8 +84,61 @@ function placeholder(name: string, purpose: string): SlashCommand {
 }
 
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
-  placeholder('auth', '配置 API Key'),
-  placeholder('cd', '切换工作区'),
+  {
+    name: 'auth',
+    description: '配置 API Key（写入用户级 .env）',
+    // 先问再答：交互式读密钥，所以不带参数，补全时也不会留出尾空格
+    takesArg: false,
+    run: async (arg, host) => {
+      // 写成参数就会留在屏幕上（还会进终端回滚缓冲），所以这里直接挡下来，
+      // 而不是默默忽略 —— 用户很可能以为已经存进去了
+      if (arg.trim() !== '') {
+        host.print(chalk.yellow('  ! 不要把 Key 写在命令里：那样它会留在屏幕上。'));
+        host.print(chalk.dim('敲 /auth 后按提示输入，那里不回显'));
+        return;
+      }
+
+      host.print(host.apiKeyStatus());
+
+      // 掩码输入：密钥不能留在屏幕上，也不能进终端的回滚缓冲
+      const key = (await host.askSecret('新的 DEEPSEEK_API_KEY（直接回车取消）: ')).trim();
+      if (key === '') {
+        host.print(chalk.dim('已取消，Key 未改动'));
+        return;
+      }
+
+      const saved = host.saveApiKey(key);
+      host.print(
+        saved.ok
+          ? chalk.green('✓ API Key 已保存并生效')
+          : chalk.red(`✗ 保存失败：${saved.reason}`),
+      );
+    },
+  },
+  {
+    name: 'cd',
+    description: '切换工作区（会话归属不变）',
+    takesArg: true,
+    run: (arg, host) => {
+      const target = arg.trim();
+      if (target === '') {
+        host.print(chalk.dim(`当前工作区 ${host.state.workspace}`));
+        host.print(chalk.dim('用法：/cd <目录>'));
+        return;
+      }
+
+      const switched = host.switchWorkspace(target);
+      if (!switched.ok) {
+        host.print(chalk.red(`✗ 切换失败：${switched.reason}`));
+        return;
+      }
+
+      host.state.workspace = switched.path;
+      host.print(chalk.green(`✓ 后续任务的工作区：${switched.path}`));
+      // 会话的分区在创建时就定死了，换工作区不会把历史搬过去 —— 这一点必须说出来
+      host.print(chalk.dim('会话仍属于启动时的工作区：/session 与 --resume 都按它找'));
+    },
+  },
   {
     name: 'help',
     description: '打印用法与命令表',
@@ -61,7 +146,22 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     run: (_arg, host) => host.print(host.usage()),
   },
   placeholder('mcp', '管理 MCP 服务'),
-  placeholder('model', '切换模型'),
+  {
+    name: 'model',
+    description: '切换模型',
+    takesArg: true,
+    run: (arg, host) => {
+      const name = arg.trim();
+      if (name === '') {
+        host.print(chalk.dim(`当前模型 ${host.state.model}`));
+        host.print(chalk.dim('用法：/model <名称>，下一轮任务起生效'));
+        return;
+      }
+
+      host.state.model = name;
+      host.print(chalk.green(`✓ 模型已切换为 ${name}`) + chalk.dim('（下一轮任务起生效）'));
+    },
+  },
   {
     name: 'quit',
     description: '退出会话',

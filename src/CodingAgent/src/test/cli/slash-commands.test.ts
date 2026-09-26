@@ -18,34 +18,60 @@ import {
 
 import { displayWidth } from '../../utils/terminal-width.js';
 
-import type { SlashCommandHost } from '../../utils/slash-commands.js';
+import type { SaveResult, SlashCommandHost, WorkspaceSwitchResult } from '../../utils/slash-commands.js';
 
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
 const plain = (text: string): string => text.replace(ANSI_PATTERN, '');
 
 /** 把命令要用的外部能力换成收集器，于是整张命令表可以离开 TTY 跑一遍 */
-function recorder(): {
+function recorder(options: {
+  switchWorkspace?: (path: string) => WorkspaceSwitchResult;
+  saveApiKey?: (key: string) => SaveResult;
+  /** askSecret 交回来的值 */
+  secret?: string;
+} = {}): {
   host: SlashCommandHost;
   printed: string[];
   exited: () => boolean;
+  savedKeys: string[];
+  askedPrompts: string[];
 } {
   const printed: string[] = [];
+  const savedKeys: string[] = [];
+  const askedPrompts: string[] = [];
   let didExit = false;
 
-  return {
-    printed,
-    exited: () => didExit,
-    host: {
-      print: (text) => {
-        printed.push(text);
-      },
-      exit: () => {
-        didExit = true;
-      },
-      sessions: () => '（会话列表）',
-      usage: () => '（用法）',
+  const host: SlashCommandHost = {
+    print: (text) => {
+      printed.push(text);
+    },
+    exit: () => {
+      didExit = true;
+    },
+    sessions: () => '（会话列表）',
+    usage: () => '（用法）',
+    state: { model: 'deepseek-chat', workspace: 'C:\\ws' },
+    switchWorkspace: options.switchWorkspace ?? ((path) => ({ ok: true, path })),
+    apiKeyStatus: () => '（Key 现状）',
+    saveApiKey: (key) => {
+      savedKeys.push(key);
+      return options.saveApiKey?.(key) ?? { ok: true };
+    },
+    askSecret: async (prompt) => {
+      askedPrompts.push(prompt);
+      return options.secret ?? '';
     },
   };
+
+  return { host, printed, exited: () => didExit, savedKeys, askedPrompts };
+}
+
+/** 按命令名跑一条，模拟「用户敲了这一行」 */
+async function dispatch(line: string, host: SlashCommandHost): Promise<void> {
+  const parsed = parseCommand(SLASH_COMMANDS, line);
+  if (parsed === null) throw new Error(`不是命令：${line}`);
+
+  await parsed.command.run(parsed.arg, host);
 }
 
 describe('命令表本身', () => {
@@ -91,10 +117,95 @@ describe('命令表本身', () => {
   });
 
   it('尚未接入的命令敲了会说清楚，不装作执行了', async () => {
+    // MCP 客户端在本仓库还不存在（tools.md 里列为未做项），所以这条仍是占位
     const { host, printed } = recorder();
-    await parseCommand(SLASH_COMMANDS, '/model deepseek-chat')!.command.run('', host);
+    await dispatch('/mcp', host);
 
     expect(printed.join('\n')).toContain('尚未接入');
+  });
+});
+
+describe('会话配置类命令', () => {
+  it('/model 切换后续任务使用的模型', async () => {
+    const { host, printed } = recorder();
+    await dispatch('/model deepseek-v4-pro', host);
+
+    expect(host.state.model).toBe('deepseek-v4-pro');
+    expect(printed.join('\n')).toContain('deepseek-v4-pro');
+  });
+
+  it('/model 不带参数只报告当前模型，不改动它', async () => {
+    const { host, printed } = recorder();
+    await dispatch('/model', host);
+
+    expect(host.state.model).toBe('deepseek-chat');
+    expect(printed.join('\n')).toContain('deepseek-chat');
+  });
+
+  it('/cd 成功时换掉任务的工作区，并说明会话归属没有跟着变', async () => {
+    const { host, printed } = recorder({
+      switchWorkspace: () => ({ ok: true, path: 'C:\\other' }),
+    });
+    await dispatch('/cd C:\\other', host);
+
+    expect(host.state.workspace).toBe('C:\\other');
+    // 事件落盘与 --resume 都按启动时的工作区，不说清楚就会被当成「历史丢了」
+    expect(printed.join('\n')).toContain('会话仍属于启动时的工作区');
+  });
+
+  it('/cd 失败时原工作区不变，并把原因说出来', async () => {
+    const { host, printed } = recorder({
+      switchWorkspace: () => ({ ok: false, reason: 'C:\\nope 不存在或读不到' }),
+    });
+    await dispatch('/cd C:\\nope', host);
+
+    expect(host.state.workspace).toBe('C:\\ws');
+    expect(printed.join('\n')).toContain('不存在');
+  });
+
+  it('/cd 不带参数只报告当前工作区与用法', async () => {
+    const { host, printed } = recorder();
+    await dispatch('/cd', host);
+
+    expect(host.state.workspace).toBe('C:\\ws');
+    expect(printed.join('\n')).toContain('C:\\ws');
+  });
+
+  it('/auth 先报 Key 现状，再把输入的值存下去（两端空白裁掉）', async () => {
+    const { host, printed, savedKeys, askedPrompts } = recorder({ secret: '  sk-new  ' });
+    await dispatch('/auth', host);
+
+    expect(printed.join('\n')).toContain('（Key 现状）');
+    expect(askedPrompts).toHaveLength(1);
+    expect(savedKeys).toEqual(['sk-new']);
+  });
+
+  it('/auth 空输入等于取消，什么都不写', async () => {
+    const { host, printed, savedKeys } = recorder({ secret: '   ' });
+    await dispatch('/auth', host);
+
+    expect(savedKeys).toEqual([]);
+    expect(printed.join('\n')).toContain('已取消');
+  });
+
+  it('/auth 保存失败时报出原因，不假装成功', async () => {
+    const { host, printed } = recorder({
+      secret: 'sk-x',
+      saveApiKey: () => ({ ok: false, reason: '磁盘只读' }),
+    });
+    await dispatch('/auth', host);
+
+    expect(printed.join('\n')).toContain('磁盘只读');
+    expect(printed.join('\n')).not.toContain('已保存');
+  });
+
+  it('/auth 拒绝把 Key 写成参数，因为那样会留在屏幕上', async () => {
+    const { host, printed, askedPrompts, savedKeys } = recorder({ secret: 'sk-x' });
+    await dispatch('/auth sk-写在命令里的', host);
+
+    expect(askedPrompts).toEqual([]);
+    expect(savedKeys).toEqual([]);
+    expect(printed.join('\n')).toContain('不要');
   });
 });
 

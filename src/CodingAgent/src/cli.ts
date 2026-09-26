@@ -27,7 +27,15 @@
 
 import { createInterface } from 'node:readline/promises';
 import { stdin, stdout } from 'node:process';
-import { realpathSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  realpathSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs';
+import { dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import chalk from 'chalk';
@@ -39,7 +47,7 @@ import { config } from './config/default.js';
 import { loadUserEnvFile } from './config/user-env.js';
 
 import { SessionStore, listSessions } from './persistence/session-store.js';
-import { userEnvFile } from './persistence/paths.js';
+import { userEnvFile, normalizeWorkspaceRoot } from './persistence/paths.js';
 import { formatSessionList, resolveResumeTarget } from './persistence/resume.js';
 
 import { SLASH_COMMANDS, parseCommand, renderCommandHelp } from './utils/slash-commands.js';
@@ -90,6 +98,51 @@ function priorRunOf(state: AgentRunState, taskDescription: string): PriorRun {
 
 function formatCount(n: number): string {
   return n.toLocaleString();
+}
+
+
+/**
+ * 取当前可用的 API Key。
+ *
+ * 每轮任务前现读 `process.env`，而不是启动时抄一份留着用：`/auth` 改的正是这个
+ * 环境变量，抄一份会让新 key 到下次启动才生效 —— 而它就是为了立刻生效才写的。
+ */
+function requireApiKey(): string {
+  const key = process.env.DEEPSEEK_API_KEY;
+  if (!key) {
+    throw new Error(
+      '缺少 DEEPSEEK_API_KEY。请把它设为环境变量，或写入：\n' +
+      `  ${userEnvFile()}\n` +
+      '（文件格式为 KEY=value 一行。）',
+    );
+  }
+  return key;
+}
+
+/**
+ * 把 API Key 写进用户级 .env，并让它对当前进程立刻生效。
+ *
+ * 只替换 `DEEPSEEK_API_KEY` 那一行，其余内容原样保留：这个文件是用户的配置文件
+ * 而不是本应用的私有文件（`loadUserEnvFile` 会把里面**所有**键都装进环境），
+ * 整份覆写等于替用户删掉别人的变量。
+ *
+ * 注意它不一定能决定下次启动用哪个 key：环境变量优先，若 DEEPSEEK_API_KEY 本来
+ * 就由环境给出，这里写的值会被它盖住。/auth 会把这件事说清楚（见 apiKeyStatus）。
+ */
+function writeUserEnvKey(key: string): void {
+  const file = userEnvFile();
+  const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
+
+  const kept = existing
+    .split(/\r?\n/)
+    .filter((line) => !/^\s*DEEPSEEK_API_KEY\s*=/.test(line))
+    // split 在末尾有换行的文件上会多出一个空串，自己收掉，避免越写越空
+    .filter((line, index, lines) => !(line === '' && index === lines.length - 1));
+
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, [...kept, `DEEPSEEK_API_KEY=${key}`, ''].join('\n'), 'utf8');
+
+  process.env.DEEPSEEK_API_KEY = key;
 }
 
 
@@ -301,16 +354,15 @@ async function main(): Promise<void> {
   // 环境变量优先；没有才去读用户级 .env。
   // 全局安装后没有 npm script 帮忙传 --env-file，而那个参数相对当前工作目录解析，
   // 在用户任意目录下敲命令时指不到家目录里的文件，所以这里自己加载。
+  //
+  // 读之前先记一笔「环境里本来有没有」：/auth 要据此说清写进文件到底生不生效
+  // （环境变量优先，文件里的值会被环境里的值盖住）。读过之后就分辨不出来了。
+  const keyFromEnvironment = process.env.DEEPSEEK_API_KEY !== undefined;
   loadUserEnvFile();
 
-  const apiKey = process.env.DEEPSEEK_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      '缺少 DEEPSEEK_API_KEY。请把它设为环境变量，或写入：\n' +
-      `  ${userEnvFile()}\n` +
-      '（文件格式为 KEY=value 一行。）',
-    );
-  }
+  // 启动时先确认能拿到 key：别让用户配了半天才发现缺。
+  // 每轮任务前会再查一次（见 requireApiKey），/auth 换过的 key 要立刻生效。
+  requireApiKey();
 
   // ---- 会话：续写被恢复的那个，或新开一个 ----
   let session: SessionStore;
@@ -377,22 +429,66 @@ async function main(): Promise<void> {
     return commands === undefined ? readLine({ prompt }) : readLine({ prompt, commands });
   }
 
+  /**
+   * 会话的归属工作区。
+   *
+   * 它在会话创建时就定死了（分区目录名是工作区路径的哈希），`/cd` 不会把它搬走。
+   * 所以事件落盘、`/session`、`--resume` 一律按这个值，而「任务实际读写哪个目录」
+   * 按 `host.state.workspace`。两者一旦不同，/cd 会当场把这件事说出来。
+   */
+  const sessionWorkspace = workspacePath;
+
   /** 命令表要用的外部能力：会话存储、用法文本、退出信号都在这里注入 */
   const host: SlashCommandHost = {
     print: (text) => console.log(text),
     exit: () => {
       shuttingDown = true;
     },
-    sessions: () => formatSessionList(listSessions(workspacePath)),
+    sessions: () => formatSessionList(listSessions(sessionWorkspace)),
     usage: () => USAGE,
+
+    state: {
+      model: args.model,
+      workspace: workspacePath,
+    },
+
+    // 切之前先验：切到一个不存在的地方，比拒绝切换更难查（每个工具都开始报错）
+    switchWorkspace: (path) => {
+      const target = normalizeWorkspaceRoot(path);
+      try {
+        if (!statSync(target).isDirectory()) return { ok: false, reason: `${target} 不是目录` };
+      } catch {
+        return { ok: false, reason: `${target} 不存在或读不到` };
+      }
+      return { ok: true, path: target };
+    },
+
+    apiKeyStatus: () =>
+      keyFromEnvironment
+        ? 'API Key 来自环境变量 DEEPSEEK_API_KEY' +
+          chalk.dim(`（环境变量优先，写入 ${userEnvFile()} 不会盖过它）`)
+        : `API Key 来自用户级文件 ${userEnvFile()}`,
+
+    saveApiKey: (key) => {
+      try {
+        writeUserEnvKey(key);
+        return { ok: true };
+      } catch (error) {
+        return { ok: false, reason: (error as Error).message };
+      }
+    },
+
+    // 掩码输入：TTY 下走自带输入组件的打码模式，非 TTY 只能交给 readline
+    askSecret: (prompt) =>
+      pipeTerminal !== null ? pipeTerminal.question(prompt) : readLine({ prompt, mask: true }),
   };
 
 
 
   console.log(panel('会话', [
-    ['工作区', workspacePath],
+    ['工作区', host.state.workspace],
     ['会话', `${session.sessionId}  ${chalk.dim(sessionNote)}`],
-    ['模型', `${args.model}  ${chalk.dim(`· 迭代上限 ${args.maxIterations} 轮`)}`],
+    ['模型', `${host.state.model}  ${chalk.dim(`· 迭代上限 ${args.maxIterations} 轮`)}`],
   ]));
   console.log(chalk.dim('输入 /help 看命令，/quit 退出；行首敲 / 会列出候选'));
   if (args.dev) console.log(chalk.dim('dev 参数:'), args);
@@ -400,7 +496,11 @@ async function main(): Promise<void> {
 
   /** 每轮一个全新的 runtime：state 不跨轮复用，历史靠 history 传递 */
   async function runOne(task: string): Promise<void> {
-    const provider = new DeepSeekProvider({ apiKey: apiKey!, modelName: args.model });
+    // 模型与 key 每轮现取：/model 与 /auth 只改会话配置，改完的下一轮就该用上新值
+    const provider = new DeepSeekProvider({
+      apiKey: requireApiKey(),
+      modelName: host.state.model,
+    });
 
     /**
      * 流式输出的落点：模型每产出一段正文就直接写到终端。
@@ -423,7 +523,7 @@ async function main(): Promise<void> {
     };
 
     const runtime = new AgentRuntime(provider, tools, {
-      workspacePath,
+      workspacePath: host.state.workspace,
       maxIterations: args.maxIterations,
       eagerTools: config.tools.eager,
       priorRuns: history,
@@ -551,7 +651,14 @@ async function main(): Promise<void> {
       // 命令名不在表里的（例如 `/tmp/x 里有什么` 这种绝对路径）照常当任务送给模型
       const parsed = parseCommand(SLASH_COMMANDS, line);
       if (parsed !== null) {
-        await parsed.command.run(parsed.arg, host);
+        try {
+          await parsed.command.run(parsed.arg, host);
+        } catch (error) {
+          // 命令自己要用户输入时（/auth 读密钥），Ctrl+C 会从输入组件抛到这里。
+          // 那只是取消这一条命令，不该把整个会话带走。
+          if (error instanceof InputAborted) console.log(chalk.dim('已取消'));
+          else console.error(`命令 /${parsed.command.name} 失败: ${(error as Error).message}`);
+        }
         continue;
       }
 

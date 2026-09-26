@@ -32,6 +32,11 @@ export interface InputLineOptions {
   prompt: string;
   /** 不传就没有候选菜单：审批问答走这条，它不需要命令表 */
   commands?: readonly SlashCommand[];
+  /**
+   * 不回显输入内容（读密钥用）：屏幕上按字符数打码，**返回值仍是原文**。
+   * 打码不改变长度，所以光标列数的算法照旧成立。
+   */
+  mask?: boolean;
 }
 
 export interface InputFrame {
@@ -118,6 +123,7 @@ function nextCharIndex(text: string, index: number): number {
 
 /**
  * 读一行。返回值是**原样**的一行（含两端空白），裁剪由调用方决定。
+ * `mask` 只影响屏幕上显示什么，不影响返回值。
  *
  * 按键语义：
  *   Enter      提交整行；菜单开着时先用高亮项补全命令名（`/qui` + Enter 等于 `/quit`）
@@ -171,10 +177,14 @@ export async function readLine(options: InputLineOptions): Promise<string> {
       if (menu.selected >= matches.length) menu.selected = Math.max(0, matches.length - 1);
     };
 
+    /** 屏幕上的输入内容。打码模式下按字符数打成 `*`，长度不变，光标算法不受影响 */
+    const shownText = (): string =>
+      options.mask === true ? '*'.repeat(buffer.length) : buffer;
+
     const render = (): InputFrame => {
       syncMenu();
 
-      const frame = renderInputLine(options.prompt, buffer, cursor, terminalWidth());
+      const frame = renderInputLine(options.prompt, shownText(), cursor, terminalWidth());
       const rows = [...frame.lines, ...menuRows()];
 
       if (rendered) {
@@ -201,7 +211,7 @@ export async function readLine(options: InputLineOptions): Promise<string> {
      * 从输入行中间换行会让后续输出从那一列开始，整屏错位。
      */
     const endInputLine = (frame: InputFrame): void => {
-      const end = renderInputLine(options.prompt, buffer, buffer.length, terminalWidth());
+      const end = renderInputLine(options.prompt, shownText(), buffer.length, terminalWidth());
 
       const delta = end.cursorRow - frame.cursorRow;
       if (delta > 0) moveCursor(stdout, 0, delta);
