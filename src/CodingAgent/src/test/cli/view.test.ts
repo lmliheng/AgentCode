@@ -12,11 +12,12 @@ import {
   describeContextSize,
   describeObservation,
   describeStopReason,
-  displayWidth,
   paint,
   panel,
   viewOfRoundUsage,
 } from '../../cli.js';
+
+import { displayWidth, truncateToWidth } from '../../utils/terminal-width.js';
 
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
 const plain = (text: string): string => text.replace(ANSI_PATTERN, '');
@@ -157,5 +158,36 @@ describe('信息块的排版', () => {
 
   it('ANSI 转义不占列宽', () => {
     expect(displayWidth('\u001b[31mabc\u001b[39m')).toBe(3);
+  });
+});
+
+// 按列截断也归这一层：信息块排版、候选菜单、输入行折行都要靠「占几列」判断，
+// 而它一旦算错，错的是同一个位置 —— 中文与全角标点上。
+describe('按显示列截断', () => {
+  it('装得下就原样返回', () => {
+    expect(truncateToWidth('切换模型', 20)).toBe('切换模型');
+    expect(truncateToWidth('abc', 3)).toBe('abc');
+  });
+
+  it('装不下时截断并只留一个省略号', () => {
+    expect(truncateToWidth('abcdef', 4)).toBe('abc…');
+    expect(truncateToWidth('abcdef', 4).length).toBe(4);
+  });
+
+  it('截断按显示列算，不按码元数算', () => {
+    // 「中文」占 4 列，加省略号 1 列，所以宽度 5 能容下两个汉字
+    expect(truncateToWidth('中文测试', 5)).toBe('中文…');
+    expect(displayWidth(truncateToWidth('中文测试', 5))).toBe(5);
+  });
+
+  it('不为一个宽字符挤破宽度界限：宁可少留一个字', () => {
+    // 宽度 4 时「中」占 2 列、省略号占 1 列，剩下 1 列放不下第二个汉字
+    expect(truncateToWidth('中文中', 4)).toBe('中…');
+    expect(displayWidth(truncateToWidth('中文中', 4))).toBeLessThanOrEqual(4);
+  });
+
+  it('宽度小到放不下省略号时返回空串，而不是超宽', () => {
+    expect(truncateToWidth('abc', 0)).toBe('');
+    expect(truncateToWidth('abc', 1)).toBe('');
   });
 });

@@ -18,6 +18,7 @@ import type {
 } from '../../types/AgentProvider.js';
 import type { ChatMessage } from '../../types/Message.js';
 import type { ModelDecision, PlanStep } from '../../types/ReAct.js';
+import type { SessionEventInput } from '../../persistence/events.js';
 
 type ScriptEntry =
     | { decision: ModelDecision; usage?: TokenUsage }
@@ -284,15 +285,22 @@ describe('初始计划', () => {
     it('没有注册任何工具时不发起规划轮', async () => {
         const provider = new ScriptedProvider([{ decision: { type: 'Final', answer: '结束' } }]);
 
+        const events: SessionEventInput[] = [];
         const runtime = new AgentRuntime(provider, [], {
             workspacePath: workspaceDir,
             maxIterations: 5,
+            onSessionEvent: (event: SessionEventInput) => events.push(event),
         });
         const { state } = await runtime.run('做一件事');
 
         // 没有工具就不会声明控制流入口，规划轮注定拿不到计划，因此不做这次调用
         expect(provider.calls).toHaveLength(1);
         expect(state.plan.steps).toHaveLength(3);
+
+        // 跳过这一次调用不等于跳过落账：重放会话靠事件流重建计划，
+        // 只把 steps 设进内存的话，恢复出来的会话会是个没有计划的会话
+        const planEvent = events.find((event) => event.type === 'plan_updated');
+        expect((planEvent?.payload as { plan: { steps: PlanStep[] } }).plan.steps).toHaveLength(3);
     });
 
     it('兜底计划不跨运行共享', async () => {

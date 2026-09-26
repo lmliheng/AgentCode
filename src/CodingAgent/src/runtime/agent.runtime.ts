@@ -92,12 +92,25 @@ ${steps}`;
 const FALLBACK_PLAN_STEPS: PlanStep[] = [
     {
         id: 'step-1',
-        description: '任务目标: ${taskDescription}\n\n请先给出执行计划：调用 ${REQUEST_REPLAN_TOOL} 提交步骤列表。',
+        description: '理解需求和代码结构',
         status: 'pending',
         dependsOn: [],
-        completionCriteria: '生成一个执行任务',
+        completionCriteria: '已理解任务目标和相关代码',
     },
-  
+    {
+        id: 'step-2',
+        description: '实现代码变更',
+        status: 'pending',
+        dependsOn: ['step-1'],
+        completionCriteria: '代码变更已完成并通过类型检查',
+    },
+    {
+        id: 'step-3',
+        description: '运行测试验证',
+        status: 'pending',
+        dependsOn: ['step-2'],
+        completionCriteria: '所有测试通过',
+    },
 ];
 
 /**
@@ -432,6 +445,17 @@ export class AgentRuntime {
      */
     private async createInitialPlan(taskDescription: string): Promise<void> {
         const toolDefinitions = this.buildToolDefinitions();
+
+        // 没有可执行工具时控制流入口不会被声明，模型也就没有提交计划的通道，
+        // 这一轮请求注定拿不到计划 —— 直接跳过，不做无谓的调用。
+        //
+        // 跳过时照样要落 plan_updated：事件流是重建计划的唯一来源，只把 steps
+        // 设进内存的话，重放出来的会话会是个没有计划的会话。
+        if (toolDefinitions.length === 0) {
+            this.state.plan.steps = cloneFallbackPlan();
+            this.emit({ type: 'plan_updated', payload: { plan: this.snapshotPlan() } });
+            return;
+        }
 
         const messages: ChatMessage[] = [
             { role: 'system', content: PLANNING_SYSTEM_PROMPT },

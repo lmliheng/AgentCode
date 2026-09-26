@@ -18,7 +18,7 @@
 //   --help              打印用法
 //
 // 默认进入交互：每输入一行就是**一次新的 run**，但历史对话在同一个会话里累积 ——
-// 这正是「接着聊」。输入 :q 退出、:sessions 列会话、:help 看命令。
+// 这正是「接着聊」。行首敲 `/` 会列出命令候选，`/help` 看命令表、`/quit` 退出。
 //
 // 与 task-runner 的差别：那个是批量跑一次性任务（每条任务独立上下文），
 // 这个让上下文连贯地长下去，并把会话事件逐条落盘。
@@ -42,6 +42,11 @@ import { SessionStore, listSessions } from './persistence/session-store.js';
 import { userEnvFile } from './persistence/paths.js';
 import { formatSessionList, resolveResumeTarget } from './persistence/resume.js';
 
+import { SLASH_COMMANDS, parseCommand, renderCommandHelp } from './utils/slash-commands.js';
+import { displayWidth } from './utils/terminal-width.js';
+import { InputAborted, readLine } from './utils/input-line.js';
+
+import type { SlashCommand, SlashCommandHost } from './utils/slash-commands.js';
 import type { SessionEventInput } from './persistence/events.js';
 import type { ObservationPayload, DecisionPayload } from './persistence/events.js';
 import type { PriorRun } from './types/Runtime.js';
@@ -64,10 +69,7 @@ const USAGE = `用法: acode [工作区路径] [选项]
   --dev               逐轮打印送入模型的输入量与缓存命中量
   --help              打印本用法
 
-交互命令:
-  :q, exit, quit      退出
-  :sessions           列出本工作区的会话
-  :help               打印本用法`;
+${renderCommandHelp(SLASH_COMMANDS)}`;
 
 
 /**
@@ -129,41 +131,14 @@ function marked(tone: Tone, text: string): string {
   return paint(tone, `${TONE_MARK[tone]} ${text}`);
 }
 
-const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
-
-/**
- * 终端显示宽度。
- *
- * 中文与全角标点占两列，按 `String.length` 补空格必然错位。先剥掉 ANSI 转义再算 ——
- * 颜色码不占列宽，把它们算进去会让带色的那几行整段右移。
- */
-export function displayWidth(text: string): number {
-  let width = 0;
-  for (const char of text.replace(ANSI_PATTERN, '')) {
-    width += isWideCodePoint(char.codePointAt(0) ?? 0) ? 2 : 1;
-  }
-  return width;
-}
-
-/** East Asian Wide / Fullwidth 区段：CJK 汉字、全角标点、假名、谚文 */
-function isWideCodePoint(code: number): boolean {
-  return (
-    (code >= 0x1100 && code <= 0x115f) ||
-    (code >= 0x2e80 && code <= 0xa4cf) ||
-    (code >= 0xac00 && code <= 0xd7a3) ||
-    (code >= 0xf900 && code <= 0xfaff) ||
-    (code >= 0xfe30 && code <= 0xfe6f) ||
-    (code >= 0xff00 && code <= 0xff60) ||
-    (code >= 0xffe0 && code <= 0xffe6) ||
-    (code >= 0x20000 && code <= 0x3fffd)
-  );
-}
-
 /**
  * 画一个带标题的信息块。
  *
  * 宽度只由内容决定，不去查 `process.stdout.columns`：那个值在管道与非 TTY 下拿不到，
  * 按它排版反而会在重定向到文件时错位。宁可块宽一点，也不要参差不齐。
+ *
+ * 显示宽度（中文与全角标点占两列）由 utils/terminal-width 统一算 ——
+ * 输入行折行与候选菜单也要用同一份，所以那一层不在这个文件里。
  */
 export function panel(title: string, rows: ReadonlyArray<readonly [string, string]>): string {
   const labelWidth = rows.reduce((max, [label]) => Math.max(max, displayWidth(label)), 0);
@@ -181,6 +156,8 @@ export function panel(title: string, rows: ReadonlyArray<readonly [string, strin
 
   return [head, ...lines, foot].join('\n');
 }
+
+
 
 /** 毫秒转人读时长 */
 function formatDuration(ms: number): string {
@@ -214,6 +191,8 @@ export function describeStopReason(reason: StopReason | undefined): { text: stri
       return { text: `异常停止：${reason.message}`, tone: 'bad' };
   }
 }
+
+
 
 /**
  * 当前上下文大小的展示。
@@ -263,6 +242,8 @@ export function describeCacheUsage(usage: CacheUsageView): { text: string; tone:
   };
 }
 
+
+
 /** 单轮用量转成展示形状：TokenUsage 用 undefined 表示「没报告」，展示层用 null */
 export function viewOfRoundUsage(usage: {
   promptTokens: number;
@@ -275,6 +256,8 @@ export function viewOfRoundUsage(usage: {
     cacheMissTokens: usage.cacheMissTokens ?? null,
   };
 }
+
+
 
 /**
  * 一次工具观察的标题：工具名 + 该工具自己产出的执行细节。
@@ -289,11 +272,7 @@ export function describeObservation(tool: string, display: string | undefined): 
 }
 
 
-/**
- * 
- * @
- * 1. 需要支持/
- */
+
 
 async function main(): Promise<void> {
   let args: CliArgs;
@@ -368,19 +347,54 @@ async function main(): Promise<void> {
   const registry = ToolRegistry.createDefault(config.tools.eager);
   const tools = registry.getAllTools();
 
-  const terminal = createInterface({ input: stdin, output: stdout });
   let shuttingDown = false;
-  terminal.on('SIGINT', () => {
-    shuttingDown = true;
-    terminal.close();
-  });
+
+  // 交互式下不建 readline 实例：它一建起来就把 stdin 的按键整个接管，
+  // 会和自带候选菜单的输入组件抢同一份按键。只有非交互（管道、脚本）才需要它 ——
+  // 那里没有按键事件，也没有列宽，谈不上菜单。
+  const interactive = stdin.isTTY === true && stdout.isTTY === true;
+  const pipeTerminal = interactive
+    ? null
+    : createInterface({ input: stdin, output: stdout, terminal: true });
+
+  if (pipeTerminal !== null) {
+    const piped = pipeTerminal;
+    piped.on('SIGINT', () => {
+      shuttingDown = true;
+      piped.close();
+    });
+  }
+
+  /**
+   * 读一行输入。
+   *
+   * 审批问答不传 commands，于是那条路上没有菜单 —— 它不需要命令表。
+   * Ctrl+C 在这里表现为 InputAborted，由调用方决定是退出会话还是中止这一轮。
+   */
+  async function askUser(prompt: string, commands?: readonly SlashCommand[]): Promise<string> {
+    if (pipeTerminal !== null) return pipeTerminal.question(prompt);
+
+    return commands === undefined ? readLine({ prompt }) : readLine({ prompt, commands });
+  }
+
+  /** 命令表要用的外部能力：会话存储、用法文本、退出信号都在这里注入 */
+  const host: SlashCommandHost = {
+    print: (text) => console.log(text),
+    exit: () => {
+      shuttingDown = true;
+    },
+    sessions: () => formatSessionList(listSessions(workspacePath)),
+    usage: () => USAGE,
+  };
+
+
 
   console.log(panel('会话', [
     ['工作区', workspacePath],
     ['会话', `${session.sessionId}  ${chalk.dim(sessionNote)}`],
     ['模型', `${args.model}  ${chalk.dim(`· 迭代上限 ${args.maxIterations} 轮`)}`],
   ]));
-  console.log(chalk.dim('输入 :help 看命令，:q 退出'));
+  console.log(chalk.dim('输入 /help 看命令，/quit 退出；行首敲 / 会列出候选'));
   if (args.dev) console.log(chalk.dim('dev 参数:'), args);
   console.log('');
 
@@ -403,7 +417,8 @@ async function main(): Promise<void> {
 
     const ensureNewline = (): void => {
       if (atLineStart) return;
-      process.stdout.write('\n');
+      // 换两行
+      process.stdout.write('\n\n');
       atLineStart = true;
     };
 
@@ -413,13 +428,14 @@ async function main(): Promise<void> {
       eagerTools: config.tools.eager,
       priorRuns: history,
       onStreamDelta: (delta) => {
-        // 思考链本轮不渲染：deepseek-chat 不返回它，等切到 thinking 模型再给它一块区域
+        // 思考链 本轮不渲染：deepseek-chat 不返回它，等切到 thinking 模型再给它一块区域
         const text = delta.content;
         if (!text) return;
         process.stdout.write(text);
         atLineStart = text.endsWith('\n');
         roundStreamedText = true;
       },
+
       // 事件逐条落盘；顺带把工具调用打给用户看，否则一轮跑几分钟是静默的
       onSessionEvent: (event: SessionEventInput) => {
         session.append(event);
@@ -462,7 +478,7 @@ async function main(): Promise<void> {
         console.log(`需要确认：[${action.preview.riskLevel}] ${action.preview.summary}`);
         if (files !== '') console.log(files);
 
-        const answer = await terminal.question('允许执行吗？(y/N) ');
+        const answer = await askUser('允许执行吗？(y/N) ');
         return answer.trim().toLowerCase().startsWith('y') ? 'approve' : 'reject';
       },
     });
@@ -486,6 +502,7 @@ async function main(): Promise<void> {
     const cache = describeCacheUsage(usage);
 
     ensureNewline();
+
     console.log('');
     console.log(panel('本轮结果', [
       ['停止', marked(stop.tone, stop.text)],
@@ -520,18 +537,21 @@ async function main(): Promise<void> {
     }
 
     while (!shuttingDown) {
-      const line = (await terminal.question('> ')).trim();
-      if (line === '') continue;
-
-      if (line === ':q' || line === 'exit' || line === 'quit') break;
-
-      if (line === ':sessions') {
-        console.log(formatSessionList(listSessions(workspacePath)));
-        continue;
+      let line: string;
+      try {
+        line = (await askUser('> ', SLASH_COMMANDS)).trim();
+      } catch (error) {
+        // 在提示符上按 Ctrl+C 就是退出会话，跟终端里的习惯一致
+        if (error instanceof InputAborted) break;
+        throw error;
       }
 
-      if (line === ':help') {
-        console.log(USAGE);
+      if (line === '') continue;
+
+      // 命令名不在表里的（例如 `/tmp/x 里有什么` 这种绝对路径）照常当任务送给模型
+      const parsed = parseCommand(SLASH_COMMANDS, line);
+      if (parsed !== null) {
+        await parsed.command.run(parsed.arg, host);
         continue;
       }
 
@@ -543,7 +563,7 @@ async function main(): Promise<void> {
       }
     }
   } finally {
-    terminal.close();
+    pipeTerminal?.close();
     console.log('');
     console.log(`${chalk.dim('会话')} ${chalk.cyan(session.sessionId)}`);
     console.log(
