@@ -87,7 +87,8 @@ function formatPlan(plan: PlanState): string {
         .map((s, i) => {
             const status = s.status === 'completed' ? '✅' :
                 s.status === 'failed' ? '❌' :
-                    s.status === 'in_progress' ? '🔄' : '⏳';
+                    s.status === 'skipped' ? '⏭️' :
+                        s.status === 'in_progress' ? '🔄' : '⏳';
             return `${status} Step ${i + 1}: ${s.description}`;
         })
         .join('\n');
@@ -174,6 +175,17 @@ export class AgentRuntime {
     private approvalWarned = false;
 
     /**
+     * 每个工具已经用掉几次「重新规划」机会。
+     *
+     * 触发时不再直接停机，而是先把失败上下文回灌给模型一次；仍失败才停。
+     * 模型提交 Replan 后清空（见 handleReplan）—— 那是真的换了路线。
+     */
+    private replanAttempts = new Map<string, number>();
+
+    /** 待回灌的失败工具名；下一轮构建上下文时用掉即清空 */
+    private pendingFailureNudge: string | null = null;
+
+    /**
      * 会话事件出口的降级状态。
      *
      * 粘性：一旦有事件写失败，这次运行就已经不完整了，后续成功不会让它变回
@@ -211,6 +223,8 @@ export class AgentRuntime {
         // 1. 初始化运行状态
         this.state = this.initializeState(taskDescription);
         this.approvalWarned = false;
+        this.replanAttempts = new Map();
+        this.pendingFailureNudge = null;
 
         // 会话事件的第一条。会话跨 run，run 的边界只由它表达（不在目录结构里分）
         this.emit({
@@ -585,7 +599,9 @@ export class AgentRuntime {
         //    这是第 6 条抓不到的形态（run_test/PRD.md §6.1）：模型每次都把参数微调
         //    一点（curl 的 format 串多一个 %X），于是「参数完全相同」永不成立，
         //    但它 16 次拿回的是同一段无效输出 —— 结果指纹才是可靠信号。
-        const stalled = this.detectNoProgress();
+        // 已经给模型递过失败上下文、等它这一轮回应时，不判「无进展」：
+        // 那一轮本来就该是它改道的机会，抢在它回答前停机等于白给。
+        const stalled = this.pendingFailureNudge === null ? this.detectNoProgress() : null;
         if (stalled !== null) {
             this.state.stopReason = {
                 type: 'no_progress',
@@ -969,13 +985,27 @@ export class AgentRuntime {
 
                 console.warn(`工具 ${effective.tool} 执行失败:`, result.error);
 
-                // 检查是否需要触发自动 Replan
+                // 同一工具反复失败：先真的给模型一次重新规划的机会，而不是直接收摊
                 if (this.shouldAutoReplan(effective.tool)) {
-                    this.state.stopReason = {
-                        type: 'error',
-                        message: `工具 ${effective.tool} 连续失败 ${this.MAX_RETRIES_PER_TOOL} 次，需要重新规划`,
-                    };
-                    return false;
+                    const attempts = (this.replanAttempts.get(effective.tool) ?? 0) + 1;
+                    this.replanAttempts.set(effective.tool, attempts);
+
+                    if (attempts > (this.config.maxReplanAttempts ?? 1)) {
+                        this.state.stopReason = {
+                            type: 'error',
+                            message: `工具 ${effective.tool} 在重新规划后仍反复失败，停止运行`,
+                        };
+                        return false;
+                    }
+
+                    // 下一轮的上下文里会带上这段失败上下文（见 buildContextMessages）：
+                    // 名字叫「需要重新规划」，就得真的给模型一次重新规划的机会。
+                    //
+                    // 同时清掉该工具已累积的失败记录：否则窗口计数还是满的，模型换了做法
+                    // 再失败一次就立刻停机 —— 那次尝试等于白给。
+                    this.failureHistory = this.failureHistory.filter(entry => entry.tool !== effective.tool);
+                    this.pendingFailureNudge = effective.tool;
+                    return true;
                 }
             }
 
@@ -1152,8 +1182,10 @@ export class AgentRuntime {
 
 
     /**
+     * 该工具在最近一个时间窗内的失败次数是否已达阈值。
      *
-     * @是否自动重新规划
+     * 历史包袱：方法名与提示语里写的是「连续失败」，实际统计的是**窗口内**的失败次数
+     * （run_test/PRD.md §6.3）。这里保留判定口径，只把文案改成与事实一致的说法。
      */
     private shouldAutoReplan(toolName: string): boolean {
         const now = Date.now();
@@ -1324,17 +1356,23 @@ export class AgentRuntime {
      * 处理重新规划
      */
     private async handleReplan(decision: ModelDecision & { type: 'Replan' }): Promise<boolean> {
-        // 1. 标记当前步骤为失败
+        // 1. 当前步骤如果还没了结，记成失败（已经 completed 的不要被覆盖）
         const currentStep = this.state.plan.steps[this.state.plan.currentStepIndex];
-        if (currentStep) {
+        if (currentStep && (currentStep.status === 'pending' || currentStep.status === 'in_progress')) {
             currentStep.status = 'failed';
         }
 
         // 2. 创建新计划版本
+        //
+        //    旧计划里**已经了结**的步骤（completed / failed / skipped）作为历史保留：
+        //    之前只 filter(completed)，而当时全仓库没有任何地方把步骤置为 completed，
+        //    于是这个 filter 恒为空集 —— 每次 replan 都把已经做过的进展整体丢掉。
         this.state.plan.version++;
+        const settled = this.state.plan.steps.filter(
+            s => s.status === 'completed' || s.status === 'failed' || s.status === 'skipped'
+        );
         this.state.plan.steps = [
-            // 保留已完成的步骤
-            ...this.state.plan.steps.filter(s => s.status === 'completed'),
+            ...settled,
             // 添加新的步骤
             ...decision.newPlan.map((step, index) => ({
                 ...step,
@@ -1342,10 +1380,13 @@ export class AgentRuntime {
             })),
         ];
 
-        // 3. 重置当前步骤索引到第一个未完成的步骤
-        this.state.plan.currentStepIndex = this.state.plan.steps.findIndex(
-            s => s.status === 'pending'
-        );
+        // 3. 当前步骤指向新的第一个未完成步骤
+        const nextIndex = this.state.plan.steps.findIndex(s => s.status === 'pending');
+        this.state.plan.currentStepIndex = nextIndex === -1 ? 0 : nextIndex;
+
+        // 4. 重新规划是真的换了路线：把「反复失败」的计数清零，让模型有新的机会
+        this.replanAttempts = new Map();
+        this.failureHistory = [];
 
         this.emit({ type: 'plan_updated', payload: { plan: this.snapshotPlan() } });
 
@@ -1383,6 +1424,23 @@ export class AgentRuntime {
             content: `任务目标: ${this.state.plan.originalGoal}\n\n${this.formatPlanState()}`,
         });
         messages.push(...this.deriveRunMessages(this.state.decisions, this.state.observations));
+
+        // 失败回灌：只在触发时出现一次，且明确要求「换做法或重新规划」，不是再试一遍
+        if (this.pendingFailureNudge !== null) {
+            const tool = this.pendingFailureNudge;
+            this.pendingFailureNudge = null;
+            const recent = this.failureHistory
+                .filter(entry => entry.tool === tool)
+                .slice(-1)[0];
+
+            messages.push({
+                role: 'user',
+                content:
+                    `工具 ${tool} 连续失败多次，最近一次的错误是：${recent?.error ?? '（未记录）'}\n` +
+                    '请重新规划：用 request_replan 提交一份新的步骤列表（把已完成的步骤标为 completed），' +
+                    '或换一种做法再试。不要重复同样的调用。',
+            });
+        }
 
         messages.push({
             role: 'user',
@@ -1547,7 +1605,9 @@ export class AgentRuntime {
 - 需要读取或修改文件、执行命令时，调用相应工具。
 - 工具的执行结果会在下一轮作为工具结果返回给你。
 - 当你不再需要调用任何工具时，直接给出最终答复，任务就此结束。
-- 如果当前计划已不可行，可调用 ${REQUEST_REPLAN_TOOL} 提交一份新的步骤列表。
+- 计划要跟着进度走：完成一步后，用 ${REQUEST_REPLAN_TOOL} 提交更新后的步骤列表，把该步标为 completed
+  （跳过某步标 skipped、失败标 failed）。计划如果不可行，也用同一个入口换一份新的。
+- 每轮给你的「当前计划」里的状态由你自己维护：不提交更新，它就永远停在 ⏳ —— 那份计划也就没有参考价值。
 - 若多个动作之间没有依赖关系，可调用 ${BATCH_TOOL} 一次性提交以并发执行。
 
 注意事项：

@@ -59,6 +59,12 @@ export interface AgentRuntimeConfig {
     verificationTimeoutMs?: number;
 
     /**
+     * 同一个工具反复失败时，允许「回灌失败上下文、让模型重新规划」的次数，默认 1。
+     * 用完之后仍失败就停止运行（原来是一次都不给机会，直接以 error 收尾）。
+     */
+    maxReplanAttempts?: number;
+
+    /**
      * 「成功但无进展」的判定阈值：同一工具产出相同结果达到这个次数就停止运行。
      * 默认 3；设为 0 关闭该守卫。
      */

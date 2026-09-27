@@ -42,7 +42,7 @@ const PLAN_STEP_SCHEMA = {
         description: { type: 'string', description: '步骤描述' },
         status: {
             type: 'string',
-            enum: ['pending', 'in_progress', 'completed', 'failed'],
+            enum: ['pending', 'in_progress', 'completed', 'failed', 'skipped'],
             description: '步骤状态，新步骤一律为 pending',
         },
         dependsOn: {

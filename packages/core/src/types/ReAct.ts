@@ -52,7 +52,7 @@ export interface BatchAction {
 export interface PlanStep {
     id: string;             // 步骤的唯一标识
     description: string;    // 步骤描述，如 "查找用户登录接口的位置"
-    status: 'pending' | 'in_progress' | 'completed' | 'failed'; // 状态
+    status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'skipped'; // 状态（skipped = 有意跳过，如已被别的步骤顺带完成）
     dependsOn: string[];    // 依赖的其他步骤 ID
     completionCriteria: string; // 如何判断此步骤完成，如 "找到包含 login 的路由定义"
 }

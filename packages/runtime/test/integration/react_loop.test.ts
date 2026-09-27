@@ -438,25 +438,26 @@ console.log(greet('World'));
     });
 
 
-    it('应该在工具连续失败后自动触发 Replan', async () => {
-        // 模拟 3 次连续失败的 read_file
+    it('工具反复失败时：先把失败上下文回灌给模型，再决定是否继续（原来直接停下来报错）', async () => {
+        // 三次读取都失败，且参数各不相同（真实 trace 里模型就是这么「微调」的）：
+        // 若参数完全相同，先撞上的是「重复动作」守卫，走不到回灌这条路
         const decisions: ModelDecision[] = [
             {
                 type: 'Action',
                 tool: 'read_file',
-                params: { path: 'non_existent.ts' },
+                params: { path: 'non_existent.ts', start: 1 },
                 thought: '尝试读取不存在的文件',
             },
             {
                 type: 'Action',
                 tool: 'read_file',
-                params: { path: 'non_existent.ts' },
+                params: { path: 'non_existent.ts', start: 2 },
                 thought: '再试一次',
             },
             {
                 type: 'Action',
                 tool: 'read_file',
-                params: { path: 'non_existent.ts' },
+                params: { path: 'non_existent.ts', start: 3 },
                 thought: '再试第三次',
             },
             {
@@ -478,11 +479,12 @@ console.log(greet('World'));
         );
 
         const result = await runtime.run('读取 non_existent.ts');
-        expect(result.state.stopReason?.type).toBe('error');
-        if (result.state.stopReason?.type === 'error') {
-            expect(result.state.stopReason.message).toContain('连续失败');
-        }
-        expect(result.state.iterationCount).toBeLessThanOrEqual(4);
+
+        // 三次失败之后模型拿到一次「重新规划/换做法」的机会，于是它给出了 Final。
+        // 旧行为是在第三次失败时直接置 error 收摊，模型连一次改道的机会都没有。
+        expect(result.state.stopReason?.type).toBe('task_completed');
+        expect(result.state.observations.length).toBe(3);
+        expect(result.state.iterationCount).toBeLessThanOrEqual(5);
     });
 
 
