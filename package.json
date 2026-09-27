@@ -8,7 +8,6 @@
     "balance:llm": "tsx --env-file=.env packages/LLM/chat.ts balance",
     "jev:llm": "tsx --env-file=.env packages/LLM/jev.ts jev",
     "tool_calling:agent": "tsx --env-file=.env packages/MCP/ToolCalling/toolcalling.ts",
-    "agent": "tsx --env-file=.env MyAgent/index.js ",
     "comsume:script": "tsx --env-file=.env scripts/ai_git.js comsume",
     "commits:script": "tsx --env-file=.env scripts/ai_git.js commits",
     "batch:script": "tsx --env-file=.env scripts/ai_git.js batch",
