@@ -196,6 +196,7 @@ export type StopReason =
     | { type: 'max_tool_calls'; limit: number } // 工具调用次数
     | { type: 'max_file_changes'; limit: number } // 文件变更数量
     | { type: 'timeout'; durationMs: number } // 响应超时
+    | { type: 'no_progress'; tool: string; repeats: number } // 同一工具反复产出相同结果（微调参数但结果不变）
     | { type: 'task_completed' } // 任务完成
     | { type: 'user_interrupted' } // 用户打断
     | { type: 'error'; message: string }; // 执行错误

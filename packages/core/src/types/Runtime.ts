@@ -59,6 +59,12 @@ export interface AgentRuntimeConfig {
     verificationTimeoutMs?: number;
 
     /**
+     * 「成功但无进展」的判定阈值：同一工具产出相同结果达到这个次数就停止运行。
+     * 默认 3；设为 0 关闭该守卫。
+     */
+    noProgressLimit?: number;
+
+    /**
      * 单次工具输出的体量上限（字符与行数）。
      *
      * 提供时作为全局默认；工具自身声明的预算仍然优先于它。

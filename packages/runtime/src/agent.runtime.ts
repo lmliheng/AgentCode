@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -570,15 +571,131 @@ export class AgentRuntime {
             return true;
         }
 
-        // 6. 检查重复 Action（连续 3 次相同的 Action）
+        // 6. 检查重复动作（连续 3 次相同；Action 与 BatchAction 都算）
         if (this.hasRepeatedActions()) {
             this.state.stopReason = {
                 type: 'error',
-                message: '检测到重复的 Action，可能陷入循环',
+                message: '检测到重复的动作，可能陷入循环',
+            };
+            return true;
+        }
+
+        // 7. 检查「成功但无进展」：同一工具反复产出同样的结果。
+        //
+        //    这是第 6 条抓不到的形态（run_test/PRD.md §6.1）：模型每次都把参数微调
+        //    一点（curl 的 format 串多一个 %X），于是「参数完全相同」永不成立，
+        //    但它 16 次拿回的是同一段无效输出 —— 结果指纹才是可靠信号。
+        const stalled = this.detectNoProgress();
+        if (stalled !== null) {
+            this.state.stopReason = {
+                type: 'no_progress',
+                tool: stalled.tool,
+                repeats: stalled.repeats,
             };
             return true;
         }
         return false;
+    }
+
+    /**
+     * 把一次决策归一成可比对的指纹：Action 看「工具 + 参数」，BatchAction 看子动作序列。
+     *
+     * 之前只认 `type === 'Action'`，而实测里陷入循环的那 14 次决策**全是 BatchAction**，
+     * 守卫一次都不会命中。
+     */
+    private decisionSignature(decision: ModelDecision): string | null {
+        if (decision.type === 'Action') {
+            return `${decision.tool}|${JSON.stringify(decision.params ?? {})}`;
+        }
+        if (decision.type === 'BatchAction') {
+            const parts = decision.actions.map(
+                (action) => `${action.tool}|${JSON.stringify(action.params ?? {})}`,
+            );
+            return `batch:[${parts.join(';')}]`;
+        }
+        return null;
+    }
+
+    /**
+     * 观测结果指纹：成功看内容，失败看错误文本。
+     *
+     * 参数不参与 —— 要抓的正是「参数在变、结果没变」。
+     */
+    private observationSignature(observation: Observation): string {
+        const { result } = observation;
+        const body = result.success
+            ? JSON.stringify(result.data ?? result.display ?? '')
+            : `!${result.error ?? ''}`;
+        const tool = observation.action.tool;
+        return `${tool}|${body.length}|${createHash('sha1').update(body).digest('hex')}`;
+    }
+
+    /**
+     * 检测「同工具 + 同结果」在多个**决策轮**里反复出现，达到 noProgressLimit 即判定无进展。
+     *
+     * 按「轮」计数而不是按观察条数：一次 BatchAction 里并发跑 5 个同样的任务是正常用法
+     * （同一轮里 5 条相同观察只算 1 轮），而 PRD 里那种「每次微调一个字符、结果不变」
+     * 是 16 个不同的轮各产出同一段输出 —— 后者才是要拦的循环。
+     *
+     * 只看最近的若干轮，避免把早年的重复读当成循环。
+     */
+    private detectNoProgress(): { tool: string; repeats: number } | null {
+        const limit = this.config.noProgressLimit ?? 3;
+        if (limit <= 0) return null;
+
+        const rounds = this.observationRounds().slice(-limit * 3);
+        if (rounds.length < limit) return null;
+
+        const counts = new Map<string, { tool: string; rounds: number }>();
+        for (const round of rounds) {
+            // 同一轮里出现的指纹只记一次 —— 并发跑同一个工具是正常用法
+            const seenThisRound = new Set<string>();
+            for (const observation of round) {
+                const signature = this.observationSignature(observation);
+                if (seenThisRound.has(signature)) continue;
+                seenThisRound.add(signature);
+
+                const entry = counts.get(signature);
+                if (entry === undefined) {
+                    counts.set(signature, { tool: observation.action.tool, rounds: 1 });
+                } else {
+                    entry.rounds += 1;
+                    if (entry.rounds >= limit) return { tool: entry.tool, repeats: entry.rounds };
+                }
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 把观察按决策轮分组。
+     *
+     * 观察本身不带轮次，但消耗规则是确定的：Action 消耗 1 条、BatchAction 消耗 N 条
+     * （N = 子动作数），Replan / Final 不消耗。与 `deriveRunMessages` 的游标口径一致。
+     */
+    private observationRounds(): Observation[][] {
+        const rounds: Observation[][] = [];
+        let cursor = 0;
+
+        for (const decision of this.state.decisions) {
+            const size =
+                decision.type === 'Action'
+                    ? 1
+                    : decision.type === 'BatchAction'
+                        ? decision.actions.length
+                        : 0;
+            if (size === 0) continue;
+
+            const slice = this.state.observations.slice(cursor, cursor + size);
+            cursor += size;
+            if (slice.length > 0) rounds.push(slice);
+        }
+
+        // 理论上不会有剩余；真出现了也别丢，挂成最后一轮
+        if (cursor < this.state.observations.length) {
+            rounds.push(this.state.observations.slice(cursor));
+        }
+        return rounds;
     }
 
 
@@ -591,16 +708,11 @@ export class AgentRuntime {
         const recentDecisions = this.state.decisions.slice(-3);
         if (recentDecisions.length < 3) return false;
 
-        // 只有连续 3 次完全相同的 Action（tool + params 都相同）才判定为循环
-        return recentDecisions.every(d => {
-            if (d.type !== 'Action') return false;
-            const first = recentDecisions[0] as ModelDecision & { type: 'Action' };
-            const current = d as ModelDecision & { type: 'Action' };
-            return (
-                current.tool === first.tool &&
-                JSON.stringify(current.params) === JSON.stringify(first.params)
-            );
-        });
+        // 连续 3 次完全相同的动作才算循环。Action 与 BatchAction 用同一个指纹口径：
+        // 只看 Action 的话，整段都是 BatchAction 的循环（实测出现过）永远抓不到。
+        const first = this.decisionSignature(recentDecisions[0]!);
+        if (first === null) return false;
+        return recentDecisions.every(d => this.decisionSignature(d) === first);
     }
 
 

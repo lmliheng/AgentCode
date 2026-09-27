@@ -238,6 +238,8 @@ export function describeStopReason(reason: StopReason | undefined): { text: stri
       return { text: `文件变更达到上限（${reason.limit} 处）`, tone: 'warn' };
     case 'timeout':
       return { text: `超过时间上限（${formatDuration(reason.durationMs)}）`, tone: 'warn' };
+    case 'no_progress':
+      return { text: `无进展停止：${reason.tool} 连续 ${reason.repeats} 次产出相同结果`, tone: 'warn' };
     case 'user_interrupted':
       return { text: '用户中断', tone: 'note' };
     case 'error':
