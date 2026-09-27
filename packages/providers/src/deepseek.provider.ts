@@ -118,7 +118,14 @@ type ParseArgumentsResult =
     | { ok: false; raw: string; reason: string }
 
 export class DeepSeekProvider implements AgentProvider {
-    readonly name = 'deepseek'
+    readonly name: string = 'deepseek'
+
+    /**
+     * 出现在报错文案里的厂商标。子类（如 OpenAIProvider）改它，就能复用同一套
+     * chat-completions 实现而不至于把错误信息也说成 DeepSeek —— 「谁拒了这次请求」
+     * 是排查时第一个要看的东西，说错厂家比不说更糟。
+     */
+    protected readonly vendor: string = 'DeepSeek'
     public config: AgentProviderConfig
 
     constructor(config: AgentProviderConfig) {
@@ -174,7 +181,7 @@ export class DeepSeekProvider implements AgentProvider {
         // 超时控制
         const timeoutMs = this.config.timeout ?? 30000;
         const controller = new AbortController();
-        let timeoutMessage = `DeepSeek 请求超时（${timeoutMs}ms）`;
+        let timeoutMessage = `${this.vendor} 请求超时（${timeoutMs}ms）`;
         let timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
         /**
@@ -188,7 +195,7 @@ export class DeepSeekProvider implements AgentProvider {
          */
         const armTimeout = (): void => {
             clearTimeout(timeoutId);
-            timeoutMessage = `DeepSeek 流式响应中断（${timeoutMs}ms 内未收到新数据）`;
+            timeoutMessage = `${this.vendor} 流式响应中断（${timeoutMs}ms 内未收到新数据）`;
             timeoutId = setTimeout(() => controller.abort(), timeoutMs);
         };
         
@@ -209,7 +216,7 @@ export class DeepSeekProvider implements AgentProvider {
                 // 所以按状态码分流，而不是像非流式那样先 json() 再判断 ok。
                 if (!response.ok) {
                     throw new Error(
-                        `DeepSeek 调用失败：${response.status} ${await readErrorDetail(response)}`
+                        `${this.vendor} 调用失败：${response.status} ${await readErrorDetail(response)}`
                     );
                 }
                 return await this.consumeStream(response, onDelta, armTimeout);
@@ -219,14 +226,14 @@ export class DeepSeekProvider implements AgentProvider {
 
             if (!response.ok) {
                 throw new Error(
-                    `DeepSeek 调用失败：${response.status} ${JSON.stringify(data)}`
+                    `${this.vendor} 调用失败：${response.status} ${JSON.stringify(data)}`
                 );
             }
 
             const choice = data.choices?.[0];
 
             if (!choice?.message) {
-                throw new Error(`DeepSeek 没有返回有效消息：${JSON.stringify(data)}`);
+                throw new Error(`${this.vendor} 没有返回有效消息：${JSON.stringify(data)}`);
             }
 
             const responseMessage = choice.message;
@@ -277,7 +284,7 @@ export class DeepSeekProvider implements AgentProvider {
     ): Promise<ModelResponse> {
         const body = response.body;
         if (!body) {
-            throw new Error('DeepSeek 返回了流式响应但没有响应体');
+            throw new Error(`${this.vendor} 返回了流式响应但没有响应体`);
         }
 
         const reader = body.getReader();
@@ -313,7 +320,7 @@ export class DeepSeekProvider implements AgentProvider {
             } catch {
                 // 静默跳过会悄悄吞掉正文，宁可在这里明确失败
                 throw new Error(
-                    `DeepSeek 流式响应含无法解析的数据块: ${payload.slice(0, 200)}`
+                    `${this.vendor} 流式响应含无法解析的数据块: ${payload.slice(0, 200)}`
                 );
             }
 
