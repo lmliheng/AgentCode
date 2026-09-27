@@ -11,15 +11,50 @@ interface RunCommandParams extends ToolParams {
     env?: Record<string, string>;  // 额外环境变量
 }
 
-export class RunCommandTool implements Tool<RunCommandParams> {
-    name = 'run_command';
-    description = `在工作区中执行 shell 命令，用于运行测试、编译、格式化、安装依赖等。
+/**
+ * 按平台生成工具描述。
+ *
+ * 之前这段文字写死了「当前是 Windows，命令由 cmd.exe 执行」—— 拿到 Linux/macOS 上
+ * 就是错的：模型会照着它避开 `;`、`&&`、`/tmp`，白烧调用（见 run_test/PRD.md §5.2）。
+ * shell 由 shell: true 交给系统，描述必须跟着实际平台走。
+ */
+export function describeRunCommand(platform: NodeJS.Platform = process.platform): string {
+    const shellLine = platform === 'win32'
+        ? '- 当前是 Windows，命令由 cmd.exe 执行：不支持 ; 分隔、$?、/tmp 这类 POSIX 语义，也没有 bash。& 只是顺序分隔符，不会因前一条失败而中断，用它拼接会在 exitCode 上掩盖前一条的失败。'
+        : '- 当前是类 Unix 系统，命令由 /bin/sh 执行：支持 ; 与 && 串联、$?、/tmp 等 POSIX 语义。&& 在前一条失败时短路，; 不会 —— 需要「前一条成功才继续」时用 &&，不要用 & 拼接（那是后台执行）。';
 
-- 当前是 Windows，命令由 cmd.exe 执行：不支持 ; 分隔、$?、/tmp 这类 POSIX 语义，也没有 bash。& 只是顺序分隔符，不会因前一条失败而中断，用它拼接会在 exitCode 上掩盖前一条的失败。
+    return `在工作区中执行 shell 命令，用于运行测试、编译、格式化、安装依赖等。
+
+${shellLine}
 - 命令阻塞执行，需要 stdin 交互的命令无法使用；需要长期驻留的服务类命令也不适合。
 - 优先执行项目声明的脚本（如 npm test），不要自行拼装等价的底层命令。
 - 返回 exitCode、stdout、stderr；判断成败看 exitCode，不要只凭输出里出现成功字样。
 - 超时会杀掉整条命令进程树，已捕获的输出仍会返回；输出过长会被截断。`;
+}
+
+/**
+ * 解码子进程输出。
+ *
+ * Windows 的中文控制台默认用 GBK 输出（cmd.exe 的 OEM 代码页），按 UTF-8 解会得到
+ * 一串乱码，模型读不到真实错误（PRD §5.1 的四份 trace 都出现过）。判据是：UTF-8
+ * 解出来含替换字符(U+FFFD) 才认为它不是 UTF-8，再按 GBK 解一次。
+ */
+export function decodeOutput(chunk: Buffer, platform: NodeJS.Platform = process.platform): string {
+    const utf8 = chunk.toString('utf-8');
+    if (platform !== 'win32') return utf8;
+    if (!utf8.includes('\uFFFD')) return utf8;
+
+    try {
+        return new TextDecoder('gbk').decode(chunk);
+    } catch {
+        // 运行时没编入 GBK 解码器时退回 UTF-8，宁可乱码也不要抛错
+        return utf8;
+    }
+}
+
+export class RunCommandTool implements Tool<RunCommandParams> {
+    name = 'run_command';
+    readonly description = describeRunCommand();
 
     permissions = {
         readsFiles: false,
@@ -198,8 +233,8 @@ export class RunCommandTool implements Tool<RunCommandParams> {
             // 监听取消信号
             ctx.signal?.addEventListener('abort', () => killWithError('命令执行被取消'));
 
-            child.stdout?.on('data', (data: Buffer) => { stdout += data.toString(); });
-            child.stderr?.on('data', (data: Buffer) => { stderr += data.toString(); });
+            child.stdout?.on('data', (data: Buffer) => { stdout += decodeOutput(Buffer.from(data)); });
+            child.stderr?.on('data', (data: Buffer) => { stderr += decodeOutput(Buffer.from(data)); });
 
             child.on('close', (code) => {
                 settle({
