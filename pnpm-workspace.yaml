@@ -1,0 +1,8 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+
+allowBuilds:
+  protobufjs: true
+  # esbuild: true
+  # sharp: true

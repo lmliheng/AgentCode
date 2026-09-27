@@ -58,5 +58,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.20.2"
-  }
+  },
+  "packageManager": "pnpm@12.5.1"
+  
 }
