@@ -150,6 +150,17 @@ export function replaySession(
         break;
       }
 
+      // 折叠只影响「送出哪一份历史」，不改变任何状态：采纳但不动 state，
+      // 让它照常计入 applied（它不是未知类型，也不是坏行）。
+      case 'context_folded': {
+        if (current === null) {
+          stats.orphaned += 1;
+          continue;
+        }
+        stats.applied += 1;
+        break;
+      }
+
       case 'stopped': {
         if (current === null) {
           stats.orphaned += 1;

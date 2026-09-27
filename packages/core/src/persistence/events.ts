@@ -33,6 +33,7 @@ export type SessionEventType =
   | 'observation'
   | 'approval'
   | 'plan_updated'
+  | 'context_folded'
   | 'stopped'
   | 'verification';
 
@@ -67,6 +68,22 @@ export interface PlanUpdatedPayload {
   plan: PlanState;
 }
 
+/**
+ * 上下文折叠：这一轮起，更早的历史以摘要形式送进模型（见 context-fold）。
+ *
+ * 单列成事件是因为它解释的是**之后的模型行为**：「模型怎么忘了前面读到的文件」
+ * 这个问题只看决策与观察是答不出来的 —— 那些记录仍然完整，变的是送进去的那一份。
+ * 它不改变任何状态，重放时只需跳过（不参与 state 重建）。
+ */
+export interface ContextFoldedPayload {
+  /** 保留原样的最近 run 数 */
+  keepRuns: number;
+  /** 当前 run 里保留原样的最近观察数 */
+  keepObservations: number;
+  /** 人可读的依据 */
+  reason: string;
+}
+
 export interface StoppedPayload {
   stopReason?: StopReason;
   /** run 结束时的汇总。它与重放结果互为校验：两者不一致说明日志或重放有 bug */
@@ -86,6 +103,7 @@ export interface SessionEventPayloads {
   observation: ObservationPayload;
   approval: ApprovalPayload;
   plan_updated: PlanUpdatedPayload;
+  context_folded: ContextFoldedPayload;
   stopped: StoppedPayload;
   verification: VerificationPayload;
 }
@@ -153,6 +171,7 @@ export function isKnownEventType(type: string): type is SessionEventType {
     type === 'observation' ||
     type === 'approval' ||
     type === 'plan_updated' ||
+    type === 'context_folded' ||
     type === 'stopped' ||
     type === 'verification'
   );

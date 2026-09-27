@@ -634,6 +634,13 @@ async function main(): Promise<void> {
      */
     let roundStreamedText = false;
     let atLineStart = true;
+    /**
+     * 这一轮里发生过几次「上下文折叠」。
+     *
+     * 不落盘也要说一声：折叠之后模型会「忘了」早先读到的内容，用户看到它重新读一遍
+     * 同一个文件时，得能知道那是设计使然，而不是模型开始胡来（见 context-fold）。
+     */
+    let foldCount = 0;
 
     const ensureNewline = (): void => {
       if (atLineStart) return;
@@ -669,6 +676,10 @@ async function main(): Promise<void> {
           return;
         }
         if (quiet) return;
+
+        if (event.type === 'context_folded') {
+            foldCount += 1;
+        }
 
         if (event.type === 'observation') {
           // 新一轮开始：上一轮流出来的正文到此为止
@@ -780,6 +791,11 @@ async function main(): Promise<void> {
     }
     if (usage.cacheComplete === false && usage.cacheHitTokens !== null) {
       console.log(chalk.yellow('  ! 部分轮次未报告缓存命中量，上面的缓存数为偏低值'));
+    }
+
+    // 折叠的告知：模型接下来可能重读早先读过的文件，这属于预期行为，不是它糊涂了
+    if (foldCount > 0) {
+      console.log(chalk.dim(`  · 上下文超预算，本轮折叠较早的历史 ${foldCount} 次（文件/决策照常落盘，模型需要时会重读）`));
     }
 
     // 审批的审计：谁批准/拒绝了什么。原来是只留一行 warn，事后无从查起

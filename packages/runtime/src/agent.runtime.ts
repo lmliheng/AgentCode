@@ -25,6 +25,8 @@ import type {
 import type { AgentRuntimeConfig } from '@lmliheng/acode-core'
 import type { SessionEventInput } from '@lmliheng/acode-core';
 import { applyOutputBudget, resolveContextBudget, NO_OUTPUT_PLACEHOLDER, normalizeDeliverables } from '@lmliheng/acode-core';
+import { planContextFold, foldObservationContent, summarizePriorRun, estimatePriorRunsTokens } from '@lmliheng/acode-core';
+import type { ContextFoldPlan } from '@lmliheng/acode-core';
 import type { ContextBudgetJudgement } from '@lmliheng/acode-core';
 import { splitDeclaredTools, TOOL_CALL, TOOL_SEARCH } from '@lmliheng/acode-tools';
 import { resolveDeferredToolCall } from '@lmliheng/acode-tools';
@@ -218,6 +220,14 @@ export class AgentRuntime {
      */
     private projectInstructions: ProjectInstructions | null = null;
     private projectInstructionsLoaded = false;
+
+    /**
+     * 上一次公告出去的折叠范围（`keepRuns/keepObservations`）。
+     *
+     * 折叠是逐轮可能变化的视图决策，但「变了才报」才对：每轮都刷一行日志会把它
+     * 变成噪声，而事件流里堆满同样的记录也没人看。
+     */
+    private lastFoldSignature: string | null = null;
 
     constructor(
         provider: AgentProvider,
@@ -1458,21 +1468,32 @@ export class AgentRuntime {
             { role: 'system', content: this.buildSystemPrompt() },
         ];
 
+        const priorRuns = this.config.priorRuns ?? [];
+        const fold = this.planContextFold(priorRuns.length, this.state.observations.length);
+
         // 历史 run 与当前 run 共用同一个派生函数（见 deriveRunMessages）。
         // 共用是关键：两条派生路径迟早会出现历史与当前不一致的诡异现象。
-        for (const run of this.config.priorRuns ?? []) {
+        priorRuns.forEach((run, index) => {
+            // 只折更早的那些：越近的历史越可能正被当前任务引用
+            if (index < priorRuns.length - fold.keepRuns) {
+                messages.push({ role: 'user', content: summarizePriorRun(run) });
+                return;
+            }
+
             messages.push({
                 role: 'user',
                 content: `任务目标: ${run.taskDescription}\n\n${formatPlan(run.plan)}`,
             });
-            messages.push(...this.deriveRunMessages(run.decisions, run.observations));
-        }
+            messages.push(...this.deriveRunMessages(run.decisions, run.observations, 0));
+        });
 
         messages.push({
             role: 'user',
             content: `任务目标: ${this.state.plan.originalGoal}\n\n${this.formatPlanState()}`,
         });
-        messages.push(...this.deriveRunMessages(this.state.decisions, this.state.observations));
+        // 当前 run 的观察按「保留最近 N 条」折叠：N 由折叠计划给，未超预算时等于全部
+        const foldBefore = Math.max(0, this.state.observations.length - fold.keepObservations);
+        messages.push(...this.deriveRunMessages(this.state.decisions, this.state.observations, foldBefore));
 
         // 失败回灌：只在触发时出现一次，且明确要求「换做法或重新规划」，不是再试一遍
         if (this.pendingFailureNudge !== null) {
@@ -1506,10 +1527,14 @@ export class AgentRuntime {
      *
      * 崩溃留下的悬挂调用（有决策、无观察）在这里自然表现为「助手消息带着
      * 工具调用、却没有对应的结果消息」，由最后的 sanitizeMessageSequence 修补。
+     *
+     * `foldObservationsBefore` 之前的观察换成摘要（见 context-fold）：折叠只改内容、
+     * 不动消息结构 —— 工具调用与结果必须逐条配对，丢掉任一条都会让序列非法。
      */
     private deriveRunMessages(
         decisions: readonly ModelDecision[],
         observations: readonly Observation[],
+        foldObservationsBefore = 0,
     ): ChatMessage[] {
         const messages: ChatMessage[] = [];
 
@@ -1523,7 +1548,7 @@ export class AgentRuntime {
                     cursor += 1;
                     messages.push(this.toAssistantToolCallMessage([decision], decisionIndex));
                     if (observation) {
-                        messages.push(this.toToolResultMessage(decision, observation, this.callIdOf(decision, decisionIndex, 0)));
+                        messages.push(this.toToolResultMessage(decision, observation, this.callIdOf(decision, decisionIndex, 0), cursor - 1 < foldObservationsBefore));
                     }
                     break;
                 }
@@ -1535,7 +1560,8 @@ export class AgentRuntime {
                     decision.actions.forEach((subAction, subIndex) => {
                         const observation = batchObservations[subIndex];
                         if (observation) {
-                            messages.push(this.toToolResultMessage(subAction, observation, this.callIdOf(subAction, decisionIndex, subIndex)));
+                            const observationIndex = cursor - count + subIndex;
+                            messages.push(this.toToolResultMessage(subAction, observation, this.callIdOf(subAction, decisionIndex, subIndex), observationIndex < foldObservationsBefore));
                         }
                     });
                     break;
@@ -1586,7 +1612,7 @@ export class AgentRuntime {
      * 未声明时用配置或推导的全局默认兜底 —— 后者保证新增工具（含未来 MCP
      * 接入的工具）在忘记声明时也不会产生无限输出。
      */
-    private toToolResultMessage(action: ActionLike, observation: Observation, toolCallId: string): ToolMessage {
+    private toToolResultMessage(action: ActionLike, observation: Observation, toolCallId: string, folded = false): ToolMessage {
         const error = observation.result.error ?? '';
 
         // 成功但没有任何输出内容：给明确占位，而不是让模型面对空内容
@@ -1595,7 +1621,7 @@ export class AgentRuntime {
                 role: 'tool',
                 tool_call_id: toolCallId,
                 name: action.tool,
-                content: NO_OUTPUT_PLACEHOLDER,
+                content: folded ? foldObservationContent(action.tool, NO_OUTPUT_PLACEHOLDER) : NO_OUTPUT_PLACEHOLDER,
             };
         }
 
@@ -1635,8 +1661,56 @@ export class AgentRuntime {
             role: 'tool',
             tool_call_id: toolCallId,
             name: action.tool,
-            content,
+            content: folded ? foldObservationContent(action.tool, content) : content,
         };
+    }
+
+    /**
+     * 决定这一轮要折叠多少历史（见 context-fold）。
+     *
+     * 判据用「上一轮实测的上下文大小」：它比现算一遍再折更便宜，而且正是
+     * 模型这一轮要面对的输入量。折叠状态变化时记一条事件与一行日志 ——
+     * 「模型忘了前面读到的内容」这类现象必须能事后归因，否则只能靠猜。
+     */
+    private planContextFold(runCount: number, observationCount: number): ContextFoldPlan {
+        const budget = this.getContextBudget();
+        // 取实测与历史估算中的较大者，两个理由：
+        //   - 本轮之前的那次请求未必带历史（首轮是「只做规划」的那一次），实测值
+        //     反映不了历史有多大，直接信它会让一份很大的历史在首轮判定为「在预算内」；
+        //   - 估算只算历史那一部分，是本次请求输入量的下界，不会把值抬高到失真。
+        const measured = this.state.contextSize.tokens ?? 0;
+        const estimatedTokens = Math.max(measured, estimatePriorRunsTokens(this.config.priorRuns ?? []));
+
+        const plan = planContextFold({
+            estimatedTokens,
+            budgetTokens: budget.contextTokens.value,
+            runCount,
+            observationCount,
+        });
+
+        this.applyFoldAnnouncement(plan);
+        return plan;
+    }
+
+    /** 只在折叠范围真的变了时报一次，不是每轮都刷一行 */
+    private applyFoldAnnouncement(plan: ContextFoldPlan): void {
+        // 签名里必须带上 folded：保留范围可能不变而折叠状态翻转
+        // （观察数从 6 涨到 7 时 keepObservations 仍是 6，但这一轮起真的有东西被折了）
+        const signature = `${plan.folded ? 'folded' : 'whole'}:${plan.keepRuns}/${plan.keepObservations}`;
+        if (signature === this.lastFoldSignature) return;
+        this.lastFoldSignature = signature;
+        if (!plan.folded) return;
+
+        // 日志走 stderr：headless 的 stdout 只有一行 JSON（理由同 handleReplan）
+        console.error(`[AgentRuntime] 上下文超出预算，已折叠较早的历史：${plan.reason}`);
+        this.emit({
+            type: 'context_folded',
+            payload: {
+                keepRuns: plan.keepRuns,
+                keepObservations: plan.keepObservations,
+                reason: plan.reason,
+            },
+        });
     }
 
     /**
