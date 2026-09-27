@@ -13,11 +13,10 @@
   ],
   "author": "lmliheng",
   "license": "MIT",
-  "main": "index.ts",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
   "exports": {
-    ".": {
-      "import": "./index.ts"
-    }
+    ".": "./src/index.ts"
   },
   "scripts": {
     "serve": "tsx --env-file=.env src/index.js serve",

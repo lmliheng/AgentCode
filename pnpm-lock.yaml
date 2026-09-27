@@ -179,8 +179,8 @@ importers:
         specifier: ^1.0.7
         version: 1.0.8(@cfworker/json-schema@4.1.1)(supports-color@8.1.1)
       '@lmliheng/rag-chunk':
-        specifier: ^1.0.2
-        version: 1.0.2(supports-color@8.1.1)
+        specifier: workspace:*
+        version: link:packages/RAG/rag-chunk
       '@modelcontextprotocol/express':
         specifier: ^2.0.0
         version: 2.0.0(@modelcontextprotocol/server@2.0.0)(express@5.2.1(supports-color@8.1.1))
@@ -794,9 +794,6 @@ packages:
 
   '@lmliheng/filesystem-mcp@1.0.8':
     resolution: {integrity: sha512-1SoZvyk7BQc7l0nZd4igF8TWaozOD2oz7cIQt7q1BOaMjhkOpKOn0OxbP5l3rJoKJZH+Gu9oym0b0+X3+dh7/w==}
-
-  '@lmliheng/rag-chunk@1.0.2':
-    resolution: {integrity: sha512-szf/9Y/HpuHHaIjnA/mRgJSSINOIx+qNBkqXEopEjWWJfIUqtQ0CTSh1hp6QC/Osu6nNWvygaABTFahIZ62lNg==}
 
   '@modelcontextprotocol/core@2.0.0':
     resolution: {integrity: sha512-pJCEwGG7Lfr/+PQp9ZTwKXNeO5wzbfKL7H3MYpCorM4oFBoQrdjnBgEoqG+RjhsvS1FKrDbKux+M1HhlnGWqcA==}
@@ -4368,18 +4365,6 @@ snapshots:
     transitivePeerDependencies:
       - '@cfworker/json-schema'
       - supports-color
-
-  '@lmliheng/rag-chunk@1.0.2(supports-color@8.1.1)':
-    dependencies:
-      '@zilliz/milvus2-sdk-node': 3.0.5
-      cors: 2.8.6
-      express: 5.2.1(supports-color@8.1.1)
-      multer: 2.4.0
-      pdf-parse: 2.4.5
-    transitivePeerDependencies:
-      - bufferutil
-      - supports-color
-      - utf-8-validate
 
   '@modelcontextprotocol/core@2.0.0':
     dependencies:

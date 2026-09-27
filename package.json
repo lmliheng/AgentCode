@@ -45,7 +45,7 @@
     "@lmliheng/filesystem-mcp": "^1.0.7",
     "langchain": "^1.5.9",
     "@lmliheng/ai_git": "^1.0.8",
-    "@lmliheng/rag-chunk": "^1.0.2",
+    "@lmliheng/rag-chunk": "workspace:*",
     "@modelcontextprotocol/express": "^2.0.0",
     "@modelcontextprotocol/node": "^2.0.0",
     "@modelcontextprotocol/server": "^2.0.0",
