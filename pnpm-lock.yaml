@@ -180,7 +180,7 @@ importers:
         version: 1.0.8(@cfworker/json-schema@4.1.1)(supports-color@8.1.1)
       '@lmliheng/rag-chunk':
         specifier: workspace:*
-        version: link:packages/RAG/rag-chunk
+        version: link:packages/rag-chunk
       '@modelcontextprotocol/express':
         specifier: ^2.0.0
         version: 2.0.0(@modelcontextprotocol/server@2.0.0)(express@5.2.1(supports-color@8.1.1))
@@ -262,7 +262,18 @@ importers:
         specifier: ^3.5.43
         version: 3.5.43(typescript@7.0.2)
 
-  packages/MCP/MCP/wxcloudMCP:
+  packages/ReAct/AgentRuntime: {}
+
+  packages/mcp-host:
+    dependencies:
+      '@modelcontextprotocol/sdk':
+        specifier: ^1.30.0
+        version: 1.30.0(@cfworker/json-schema@4.1.1)(supports-color@8.1.1)(zod@4.6.5)
+      zod:
+        specifier: ^4.4.3
+        version: 4.6.5
+
+  packages/mcp-wxcloud:
     dependencies:
       '@modelcontextprotocol/server':
         specifier: ^2.0.0
@@ -284,16 +295,7 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
 
-  packages/MCP/host-client-server:
-    dependencies:
-      '@modelcontextprotocol/sdk':
-        specifier: ^1.30.0
-        version: 1.30.0(@cfworker/json-schema@4.1.1)(supports-color@8.1.1)(zod@4.6.5)
-      zod:
-        specifier: ^4.4.3
-        version: 4.6.5
-
-  packages/Memory/shortMemory:
+  packages/memory-short:
     dependencies:
       '@langchain/core':
         specifier: 1.2.5
@@ -314,7 +316,7 @@ importers:
         specifier: 4.4.3
         version: 4.4.3
 
-  packages/RAG/MyRAG:
+  packages/myrag:
     dependencies:
       '@zvec/zvec':
         specifier: ^0.7.1
@@ -333,7 +335,7 @@ importers:
         specifier: ^7.0.2
         version: 7.0.2
 
-  packages/RAG/rag-chunk:
+  packages/rag-chunk:
     dependencies:
       '@zilliz/milvus2-sdk-node':
         specifier: ^3.0.5
@@ -369,8 +371,6 @@ importers:
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
-
-  packages/ReAct/AgentRuntime: {}
 
 packages:
 
@@ -4283,14 +4283,6 @@ snapshots:
       p-queue: 9.3.3
       p-retry: 7.1.1
 
-  '@langchain/langgraph-sdk@1.11.0(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))':
-    dependencies:
-      '@langchain/core': 1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3)
-      '@langchain/protocol': 0.0.19
-      '@types/json-schema': 7.0.15
-      p-queue: 9.3.3
-      p-retry: 7.1.1
-
   '@langchain/langgraph@1.4.13(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))(zod@4.4.3)':
     dependencies:
       '@langchain/core': 1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3)
@@ -4303,23 +4295,23 @@ snapshots:
       - react
       - react-dom
 
-  '@langchain/langgraph@1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.5))(ws@8.21.3))(zod@4.6.5)':
+  '@langchain/langgraph@1.4.13(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))(zod@4.6.5)':
     dependencies:
-      '@langchain/core': 1.2.11(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.5))(ws@8.21.3)
-      '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.5))(ws@8.21.3))
-      '@langchain/langgraph-sdk': 1.11.0(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.5))(ws@8.21.3))
-      '@langchain/protocol': 0.0.19
+      '@langchain/core': 1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3)
+      '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))
+      '@langchain/langgraph-sdk': 1.10.2(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))
+      '@langchain/protocol': 0.0.18
       '@standard-schema/spec': 1.1.0
       zod: 4.6.5
     transitivePeerDependencies:
       - react
       - react-dom
 
-  '@langchain/langgraph@1.4.15(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))(zod@4.6.5)':
+  '@langchain/langgraph@1.4.15(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.5))(ws@8.21.3))(zod@4.6.5)':
     dependencies:
-      '@langchain/core': 1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3)
-      '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))
-      '@langchain/langgraph-sdk': 1.11.0(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))
+      '@langchain/core': 1.2.11(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.5))(ws@8.21.3)
+      '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.5))(ws@8.21.3))
+      '@langchain/langgraph-sdk': 1.11.0(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.5))(ws@8.21.3))
       '@langchain/protocol': 0.0.19
       '@standard-schema/spec': 1.1.0
       zod: 4.6.5
@@ -4561,7 +4553,7 @@ snapshots:
 
   '@oclif/config@1.18.2(supports-color@8.1.1)':
     dependencies:
-      '@oclif/errors': 1.3.5
+      '@oclif/errors': 1.3.6
       '@oclif/parser': 3.8.17
       debug: 4.4.3(supports-color@8.1.1)
       globby: 11.1.0
@@ -4820,7 +4812,7 @@ snapshots:
   '@types/body-parser@1.19.6':
     dependencies:
       '@types/connect': 3.4.38
-      '@types/node': 22.20.2
+      '@types/node': 26.6.3
 
   '@types/chai@5.2.3':
     dependencies:
@@ -4829,11 +4821,11 @@ snapshots:
 
   '@types/connect@3.4.38':
     dependencies:
-      '@types/node': 22.20.2
+      '@types/node': 26.6.3
 
   '@types/cors@2.8.19':
     dependencies:
-      '@types/node': 22.20.2
+      '@types/node': 26.6.3
 
   '@types/deep-eql@4.0.2': {}
 
@@ -4841,7 +4833,7 @@ snapshots:
 
   '@types/express-serve-static-core@5.1.3':
     dependencies:
-      '@types/node': 22.20.2
+      '@types/node': 26.6.3
       '@types/qs': 6.15.1
       '@types/range-parser': 1.2.7
       '@types/send': 1.2.1
@@ -4884,12 +4876,12 @@ snapshots:
 
   '@types/send@1.2.1':
     dependencies:
-      '@types/node': 22.20.2
+      '@types/node': 26.6.3
 
   '@types/serve-static@2.2.0':
     dependencies:
       '@types/http-errors': 2.0.5
-      '@types/node': 22.20.2
+      '@types/node': 26.6.3
 
   '@types/thrift@0.10.17':
     dependencies:
@@ -6232,7 +6224,7 @@ snapshots:
   langchain@1.5.5(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3):
     dependencies:
       '@langchain/core': 1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3)
-      '@langchain/langgraph': 1.4.15(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))(zod@4.6.5)
+      '@langchain/langgraph': 1.4.13(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))(zod@4.6.5)
       '@langchain/langgraph-checkpoint': 1.1.5(@langchain/core@1.2.5(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3))
       langsmith: 0.10.3(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.4.3))(ws@8.21.3)
       zod: 4.6.5
