@@ -12,11 +12,16 @@
  */
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { parseFile } from '../src/parse/index.js'
 import { DEFAULT_CHUNK_OPTIONS, documentToChunks } from '../src/chunk/index.js'
 import type { Chunk } from '../src/types.js'
 
-const DATA_DIR = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data'
+/** 仓库根目录（本文件在 packages/myrag/spike/ 下） */
+const REPO_ROOT = fileURLToPath(new URL('../../../', import.meta.url))
+const DOCUMENTS_DIR = join(REPO_ROOT, 'packages/rag-chunk/documents')
+/** 语料目录：仓库内 examples/rag/milvus/data，可用 ACODE_DATA_DIR 覆盖 */
+const DATA_DIR = process.env.ACODE_DATA_DIR ?? join(REPO_ROOT, 'examples/rag/milvus/data')
 const META = { category: 'typescript-doc', owner: 'learning', sourceVersion: 'v1' }
 
 function walk(dir: string): string[] {
@@ -143,7 +148,7 @@ console.log('')
 
 // ---------------------------------------------------------------- 抽样细节
 
-const SAMPLE = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data/compiler/ast.md'
+const SAMPLE = join(DATA_DIR, 'compiler/ast.md')
 const sampleDoc = await parseFile(SAMPLE)
 const sampleChunks = documentToChunks(sampleDoc, META)
 
@@ -162,7 +167,7 @@ console.log('')
 
 // ---------------------------------------------------------------- 无标题文档
 
-const DOCX = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/rag-chunk/documents/报告.docx'
+const DOCX = join(DOCUMENTS_DIR, '报告.docx')
 try {
     const doc = await parseFile(DOCX)
     const chunks = documentToChunks(doc, { ...META, category: 'report' })
@@ -186,7 +191,7 @@ console.log('')
 
 // ---------------------------------------------------------------- PDF
 
-const PDF = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/rag-chunk/documents/resume.pdf'
+const PDF = join(DOCUMENTS_DIR, 'resume.pdf')
 try {
     const doc = await parseFile(PDF)
     const chunks = documentToChunks(doc, { ...META, category: 'resume' })
