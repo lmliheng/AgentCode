@@ -19,6 +19,7 @@ import {
   readFileSync,
   readdirSync,
   readSync,
+  rmSync,
   statSync,
   writeFileSync,
 } from 'node:fs';
@@ -330,6 +331,53 @@ export function listSessions(
   }
 
   return summaries.sort((a, b) => (a.sessionId < b.sessionId ? -1 : a.sessionId > b.sessionId ? 1 : 0));
+}
+
+/** 删除会话的结果。用返回值而不是抛异常：调用方（CLI）要把它渲染成一句话 */
+export interface DeleteSessionResult {
+  deleted: boolean;
+  /** 未删除的原因，deleted 为 false 时一定有 */
+  reason?: string;
+}
+
+/**
+ * 删除一个会话：目录连同事件流一起移除，然后重建清单快照。
+ *
+ * 三条防线，都是「删除是不可逆的，宁可拒绝也不要误删」：
+ *   - sessionId 必须先过 `isSessionId`：路径由它拼出来，放任下去就是一个目录穿越；
+ *   - 只删**该工作区分区下**的那一个会话目录，不碰别处；
+ *   - 目录不存在时如实返回「没删到」，而不是假装成功。
+ *
+ * 另外：删除的是会话（一段对话），不是工作区里的文件 —— 这条边界不能含糊。
+ */
+export function deleteSession(
+  workspaceRoot: string,
+  sessionId: string,
+  options: StoreLocationOptions = {},
+): DeleteSessionResult {
+  if (!isSessionId(sessionId)) {
+    return { deleted: false, reason: `不是合法的会话 ID：${sessionId}` };
+  }
+
+  const dir = sessionDir(workspaceRoot, sessionId, options.root);
+  if (!existsSync(dir)) {
+    return { deleted: false, reason: `会话不存在：${sessionId}` };
+  }
+
+  try {
+    rmSync(dir, { recursive: true, force: true });
+  } catch (error) {
+    return { deleted: false, reason: `删除失败：${(error as Error).message}` };
+  }
+
+  // 索引是派生快照：删完必须重建，否则列表里会留着一个已经打不开的会话
+  try {
+    rebuildWorkspaceIndex(workspaceRoot, { root: options.root });
+  } catch {
+    // 快照可以随时重建，删不掉不让删除本身失败（与 append 里的处理一致）
+  }
+
+  return { deleted: true };
 }
 
 /**
