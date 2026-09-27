@@ -72,7 +72,7 @@ export function parseArgs(argv: readonly string[]): CliArgs {
     maxIterations,
     maxTokens,
     outputFormat,
-    yes: switches.has('--yes') || switches.has('-y'),
+    yes: switches.has('--yes'),
     help: switches.has('--help') || switches.has('-h'),
     dev: switches.has('--dev'),
   };

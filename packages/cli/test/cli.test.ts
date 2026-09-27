@@ -70,6 +70,13 @@ describe('会话 CLI 的参数解析', () => {
     expect(parseArgs(['--help']).help).toBe(true);
   });
 
+  it('--yes 默认关闭：无人值守的放行必须显式声明', () => {
+    expect(parseArgs([]).yes).toBe(false);
+    expect(parseArgs(['--yes']).yes).toBe(true);
+    // 只管长开关：短选项在这个解析器里会被当成位置参数（工作区路径）
+    expect(parseArgs(['-y']).yes).toBe(false);
+  });
+
   it('缺值的开关直接报错，不静默用默认值', () => {
     expect(() => parseArgs(['--task'])).toThrow(/--task/);
     expect(() => parseArgs(['--model'])).toThrow(/--model/);

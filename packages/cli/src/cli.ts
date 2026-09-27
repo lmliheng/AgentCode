@@ -44,6 +44,7 @@ import chalk from 'chalk';
 
 import { DeepSeekProvider } from '@lmliheng/acode-providers';
 import { AgentRuntime } from '@lmliheng/acode-runtime';
+import { loadProjectInstructions } from '@lmliheng/acode-runtime';
 import { ToolRegistry } from '@lmliheng/acode-tools';
 import { config } from '@lmliheng/acode-core';
 import { loadUserEnvFile } from '@lmliheng/acode-core';
@@ -597,10 +598,16 @@ async function main(): Promise<void> {
   const quiet = args.outputFormat !== 'text';
 
   if (!quiet) {
+    // 工作区指令会进系统提示：不在这里说一声，用户只能靠模型的表现猜它读到了什么
+    const instructions = loadProjectInstructions(host.state.workspace);
+
     console.log(panel('会话', [
       ['工作区', host.state.workspace],
       ['会话', `${session.sessionId}  ${chalk.dim(sessionNote)}`],
       ['模型', `${host.state.model}  ${chalk.dim(`· 迭代上限 ${args.maxIterations} 轮`)}`],
+      ...(instructions !== null
+        ? [['指令', `${instructions.file}  ${chalk.dim(`· ${formatCount(instructions.content.length)} 字符${instructions.truncated ? '（已截断）' : ''}`)}`] as const]
+        : []),
     ]));
     console.log(chalk.dim('输入 /help 看命令，/quit 退出；行首敲 / 会列出候选'));
     if (args.dev) console.log(chalk.dim('dev 参数:'), args);

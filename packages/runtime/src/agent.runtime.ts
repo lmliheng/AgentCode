@@ -29,6 +29,8 @@ import type { ContextBudgetJudgement } from '@lmliheng/acode-core';
 import { splitDeclaredTools, TOOL_CALL, TOOL_SEARCH } from '@lmliheng/acode-tools';
 import { resolveDeferredToolCall } from '@lmliheng/acode-tools';
 import { resolveInWorkspace } from '@lmliheng/acode-tools';
+import { loadProjectInstructions, formatProjectInstructions } from './project-instructions.js';
+import type { ProjectInstructions } from './project-instructions.js';
 import { MODIFYING_TOOLS } from '@lmliheng/acode-tools'
 import type {
     Tool,
@@ -207,6 +209,15 @@ export class AgentRuntime {
      */
     private persistenceError: string | null = null;
     private persistenceWarned = false;
+
+    /**
+     * 本次运行读到的工作区指令（ACODE.md / AGENTS.md / CLAUDE.md）。
+     *
+     * `loaded` 与值分开存：null 也是「读过了，没有」这一确定结果，不能与
+     * 「还没读」混为一谈，否则每轮都会重读一遍文件。
+     */
+    private projectInstructions: ProjectInstructions | null = null;
+    private projectInstructionsLoaded = false;
 
     constructor(
         provider: AgentProvider,
@@ -1654,7 +1665,29 @@ export class AgentRuntime {
 - 变更代码后应运行相关测试确认。`;
 
         const reminder = this.buildDeferredToolsReminder();
-        return reminder === null ? base : `${base}\n\n${reminder}`;
+
+        // 工作区指令排在通用规则之后、延迟工具清单之前：它是「这个项目的规矩」，
+        // 需要压过通用工作方式，但工具清单是行为入口，保持在最靠近请求的位置。
+        const instructions = this.getProjectInstructions();
+        const parts = [base];
+        if (instructions !== null) parts.push(formatProjectInstructions(instructions));
+        if (reminder !== null) parts.push(reminder);
+        return parts.join('\n\n');
+    }
+
+    /**
+     * 工作区指令只读一次。
+     *
+     * 每轮都重读有两重代价：一是提示词前缀每轮可能变，缓存全失效；二是一份
+     * 正在被编辑的文件会让同一任务前后看到两套规矩。要换规矩就换一次运行 ——
+     * CLI 每轮任务新建一个 runtime，正好是这个粒度。
+     */
+    private getProjectInstructions(): ProjectInstructions | null {
+        if (this.projectInstructionsLoaded === false) {
+            this.projectInstructions = loadProjectInstructions(this.config.workspacePath);
+            this.projectInstructionsLoaded = true;
+        }
+        return this.projectInstructions;
     }
 
     /**
