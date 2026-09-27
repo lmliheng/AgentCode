@@ -1,5 +1,5 @@
 
-import type { Tool } from '../types/Tool.js'
+import type { Tool } from '@lmliheng/acode-core'
 import { ReadFileTool } from './read_file.js';
 import { ApplyDiffTool } from './apply_diff.js';
 import { CreateFileTool } from './create_file.js';

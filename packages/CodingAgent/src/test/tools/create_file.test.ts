@@ -4,7 +4,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { CreateFileTool } from '../../tools/create_file.js';
 import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
-import type { ToolContext } from '../../types/Tool.js';
+import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('CreateFileTool', () => {
     let workspaceDir: string;

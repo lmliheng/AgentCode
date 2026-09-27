@@ -4,7 +4,7 @@
 // **只回传 schema 文本，不改动当前的工具列表**——声明集全程恒定，
 // 模型可见的工具列表与前缀缓存因此不会被一次检索打乱。
 
-import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
+import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 import { TOOL_CALL, TOOL_SEARCH, isBridgeTool } from './deferred.js';
 
 export interface ToolSearchParams extends ToolParams {

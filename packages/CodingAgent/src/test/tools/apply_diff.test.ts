@@ -5,7 +5,7 @@ import { readFileSync } from 'fs';
 import { join } from 'path';
 import { ApplyDiffTool } from '../../tools/apply_diff.js';
 import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
-import type { ToolContext } from '../../types/Tool.js';
+import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('ApplyDiffTool', () => {
     let workspaceDir: string;

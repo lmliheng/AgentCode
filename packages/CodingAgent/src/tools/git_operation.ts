@@ -2,7 +2,7 @@
 
 import { execSync, type ExecSyncOptions } from 'child_process';
 import { join, resolve } from 'path';
-import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
+import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 
 type GitOperation = 'status' | 'diff' | 'log' | 'commit' | 'branch' | 'checkout' | 'add';
 

@@ -1,7 +1,7 @@
 
 import { writeFileSync, mkdirSync } from 'fs';
 import { dirname, join, resolve, normalize } from 'path';
-import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
+import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 
 interface CreateFileParams extends ToolParams {
     path: string;              // 相对于工作区的文件路径

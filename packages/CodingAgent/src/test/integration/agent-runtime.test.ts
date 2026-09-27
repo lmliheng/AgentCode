@@ -4,9 +4,9 @@ import { ReadFileTool } from '../../tools/read_file.js';
 import { EditFileTool } from '../../tools/edit_file.js';
 import { SearchCodeTool } from '../../tools/search_code.js';
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanResponse } from '../setup.js';
-import type { AgentProvider, ModelResponse, AgentProviderConfig } from '../../types/AgentProvider.js';
-import type { ChatMessage } from '../../types/Message.js';
-import type { ModelDecision } from '../../types/ReAct.js';
+import type { AgentProvider, ModelResponse, AgentProviderConfig } from '@lmliheng/acode-core';
+import type { ChatMessage } from '@lmliheng/acode-core';
+import type { ModelDecision } from '@lmliheng/acode-core';
 
 /**
  * Mock Provider：模拟模型行为

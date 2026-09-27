@@ -12,10 +12,10 @@ import type {
     ToolDefinition,
     DeepseekToolDefinition,
     JsonSchemaObject,
-} from '../types/AgentProvider.js'
-import { REQUEST_REPLAN_TOOL, BATCH_TOOL } from '../types/AgentProvider.js'
-import type { ChatMessage, AssistantMessage } from '../types/Message.js'
-import type { ModelDecision, Action, BatchAction, PlanStep } from '../types/ReAct.js'
+} from '@lmliheng/acode-core'
+import { REQUEST_REPLAN_TOOL, BATCH_TOOL } from '@lmliheng/acode-core'
+import type { ChatMessage, AssistantMessage } from '@lmliheng/acode-core'
+import type { ModelDecision, Action, BatchAction, PlanStep } from '@lmliheng/acode-core'
 
 /**
  * @Deepseek Provider

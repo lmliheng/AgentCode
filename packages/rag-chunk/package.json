@@ -23,16 +23,16 @@
     "md": "tsx --env-file=.env src/index.ts --md",
     "pdf": "tsx --env-file=.env src/index.js --pdf",
     "build": "tsc",
-    "p": "npm publish --registry=https://registry.npmjs.org/"
+    "p": "pnpm publish --registry=https://registry.npmjs.org/"
   },
   "type": "module",
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/multer": "^2.2.0",
-    "@types/node": "^26.4.1",
-    "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
   },
   "dependencies": {
     "@zilliz/milvus2-sdk-node": "^3.0.5",

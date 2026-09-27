@@ -14,9 +14,9 @@ import type {
     AgentProviderConfig,
     ModelResponse,
     TokenUsage,
-} from '../../types/AgentProvider.js';
-import type { ChatMessage, AssistantMessage, ToolMessage } from '../../types/Message.js';
-import type { ModelDecision } from '../../types/ReAct.js';
+} from '@lmliheng/acode-core';
+import type { ChatMessage, AssistantMessage, ToolMessage } from '@lmliheng/acode-core';
+import type { ModelDecision } from '@lmliheng/acode-core';
 
 /** 记录每次请求收到的消息序列，并按脚本逐轮返回决策 */
 class CapturingProvider implements AgentProvider {

@@ -5,7 +5,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { EditFileTool } from '../../tools/edit_file.js';
 import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
-import type { ToolContext } from '../../types/Tool.js';
+import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('EditFileTool', () => {
     let workspaceDir: string;

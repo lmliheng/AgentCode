@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { RunCommandTool } from '../../tools/run_command.js';
 import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
-import type { ToolContext } from '../../types/Tool.js';
+import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('RunCommandTool', () => {
     let workspaceDir: string;

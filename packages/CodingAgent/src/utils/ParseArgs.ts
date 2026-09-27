@@ -1,6 +1,6 @@
 
 
-import type { CliArgs } from '../types/Args.js'
+import type { CliArgs } from '@lmliheng/acode-core'
 
 /** 需要接值的开关：写成 --name value 与 --name=value 两种都认 */
 const VALUE_FLAGS = new Set(['--task', '--model', '--max-iterations']);

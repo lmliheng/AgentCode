@@ -1,4 +1,4 @@
-import type { AgentProvider, AgentProviderConfig, ModelResponse, DeepSeekResponse } from '../types/AgentProvider.js'
+import type { AgentProvider, AgentProviderConfig, ModelResponse, DeepSeekResponse } from '@lmliheng/acode-core'
 import { DeepSeekProvider } from './deepseek.provider.js'
 /**
  * 支持的 Provider 类型

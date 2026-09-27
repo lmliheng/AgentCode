@@ -1,8 +1,8 @@
 import { ref, reactive } from 'vue';
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
 import { DeepSeekProvider } from '../../provider/deepseek.provider.js'
-import type { Tool } from '../../types/Tool.js'
-import type { PendingAction, ApprovalDecision } from '../../types/Tool.js';
+import type { Tool } from '@lmliheng/acode-core'
+import type { PendingAction, ApprovalDecision } from '@lmliheng/acode-core';
 import { ReadFileTool } from '../../tools/read_file.js';
 import { ApplyDiffTool } from '../../tools/apply_diff.js';
 import { CreateFileTool } from '../../tools/create_file.js';

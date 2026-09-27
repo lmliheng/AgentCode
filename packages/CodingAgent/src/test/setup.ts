@@ -3,8 +3,8 @@
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'fs';
 import { join, dirname, sep } from 'path';
 import { tmpdir } from 'os';
-import type { ModelResponse } from '../types/AgentProvider.js';
-import type { ModelDecision } from '../types/ReAct.js';
+import type { ModelResponse } from '@lmliheng/acode-core';
+import type { ModelDecision } from '@lmliheng/acode-core';
 
 /**
  * 运行时在进入 ReAct 循环前会先请求一次初始计划（见 AgentRuntime.createInitialPlan）：

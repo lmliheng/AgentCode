@@ -4,7 +4,7 @@
 // 真正的解包发生在运行时派发处，这样目标工具才能保留它自己的参数校验、审批、
 // 输出预算与超时（在工具内部直接执行会绕开这些）。
 
-import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
+import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 import { TOOL_CALL, TOOL_SEARCH } from './deferred.js';
 
 export interface ToolCallParams extends ToolParams {

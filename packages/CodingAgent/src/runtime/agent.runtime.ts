@@ -2,9 +2,9 @@ import { spawnSync } from 'node:child_process';
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import type { AgentProvider, ToolDefinition, TokenUsage } from '../types/AgentProvider.js';
-import { REQUEST_REPLAN_TOOL, BATCH_TOOL } from '../types/AgentProvider.js';
-import type { ChatMessage, AssistantMessage, ToolMessage, ToolCall } from '../types/Message.js';
+import type { AgentProvider, ToolDefinition, TokenUsage } from '@lmliheng/acode-core';
+import { REQUEST_REPLAN_TOOL, BATCH_TOOL } from '@lmliheng/acode-core';
+import type { ChatMessage, AssistantMessage, ToolMessage, ToolCall } from '@lmliheng/acode-core';
 
 import type {
     ModelDecision,
@@ -16,12 +16,12 @@ import type {
     TaskVerificationResult,
     FileChange,
     Action,
-} from '../types/ReAct.js';
+} from '@lmliheng/acode-core';
 
-import type { AgentRuntimeConfig } from '../types/Runtime.js'
-import type { SessionEventInput } from '../persistence/events.js';
-import { applyOutputBudget, resolveContextBudget, NO_OUTPUT_PLACEHOLDER } from '../output-budget.js';
-import type { ContextBudgetJudgement } from '../output-budget.js';
+import type { AgentRuntimeConfig } from '@lmliheng/acode-core'
+import type { SessionEventInput } from '@lmliheng/acode-core';
+import { applyOutputBudget, resolveContextBudget, NO_OUTPUT_PLACEHOLDER } from '@lmliheng/acode-core';
+import type { ContextBudgetJudgement } from '@lmliheng/acode-core';
 import { splitDeclaredTools, TOOL_CALL, TOOL_SEARCH } from '../tools/deferred.js';
 import { resolveDeferredToolCall } from '../tools/tool_call.js';
 import { MODIFYING_TOOLS } from '../tools/ToolRegistry.js'
@@ -32,7 +32,7 @@ import type {
     ToolContext,
     ToolResult,
     ApprovalDecision,
-} from '../types/Tool.js';
+} from '@lmliheng/acode-core';
 
 
 interface FailureRecord {

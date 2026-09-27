@@ -9,9 +9,9 @@
 // src/test/provider/deepseek-streaming.test.ts 的单条用例守着。
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { DeepSeekProvider, DEFAULT_DEEPSEEK_BASE_URL } from '../../provider/deepseek.provider.js';
-import type { DeepSeekUsage, ToolDefinition } from '../../types/AgentProvider.js';
-import type { ChatMessage } from '../../types/Message.js';
-import type { Action, BatchAction } from '../../types/ReAct.js';
+import type { DeepSeekUsage, ToolDefinition } from '@lmliheng/acode-core';
+import type { ChatMessage } from '@lmliheng/acode-core';
+import type { Action, BatchAction } from '@lmliheng/acode-core';
 
 const readFileTool: ToolDefinition = {
     name: 'read_file',

@@ -32,7 +32,7 @@
     "probe:ast-shape": "tsx spike/ast-shape-probe.ts",
     "dump:units": "tsx spike/unit-dump.ts",
     "dump:fence": "tsx spike/fence-diagnose.ts",
-    "test": "npm run typecheck && npm run verify:chunk"
+    "test": "pnpm run typecheck && pnpm run verify:chunk"
   },
   "_scriptDocs": {
     "_about": "JSON 不支持注释，因此各 npm script 的说明集中写在这个字段里。npm 会忽略未知的顶层字段，不影响功能。",
@@ -80,8 +80,8 @@
     "officeparser": "^8.0.0"
   },
   "devDependencies": {
-    "@types/node": "^26.6.2",
-    "tsx": "^4.23.13",
-    "typescript": "^7.0.2"
+    "@types/node": "catalog:",
+    "tsx": "catalog:",
+    "typescript": "catalog:"
   }
 }

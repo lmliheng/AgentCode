@@ -18,10 +18,10 @@ import { ApplyDiffTool } from '../../tools/apply_diff.js';
 import { GitOperationTool } from '../../tools/git_operation.js';
 import { FetchUrlTool } from '../../tools/fetch_url.js';
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
-import type { Tool, ToolParams, ToolContext, ToolResult } from '../../types/Tool.js';
-import type { AgentProvider, ToolDefinition, AgentProviderConfig, ModelResponse } from '../../types/AgentProvider.js';
-import type { ChatMessage } from '../../types/Message.js';
-import type { ModelDecision } from '../../types/ReAct.js'
+import type { Tool, ToolParams, ToolContext, ToolResult } from '@lmliheng/acode-core';
+import type { AgentProvider, ToolDefinition, AgentProviderConfig, ModelResponse } from '@lmliheng/acode-core';
+import type { ChatMessage } from '@lmliheng/acode-core';
+import type { ModelDecision } from '@lmliheng/acode-core'
 
 
 /**

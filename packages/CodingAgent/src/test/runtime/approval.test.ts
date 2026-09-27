@@ -8,10 +8,10 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
 import { ReadFileTool } from '../../tools/read_file.js';
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
-import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult, PendingAction } from '../../types/Tool.js';
-import type { AgentProvider, AgentProviderConfig, ModelResponse } from '../../types/AgentProvider.js';
-import type { ChatMessage } from '../../types/Message.js';
-import type { ModelDecision } from '../../types/ReAct.js';
+import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult, PendingAction } from '@lmliheng/acode-core';
+import type { AgentProvider, AgentProviderConfig, ModelResponse } from '@lmliheng/acode-core';
+import type { ChatMessage } from '@lmliheng/acode-core';
+import type { ModelDecision } from '@lmliheng/acode-core';
 
 class ScriptedProvider implements AgentProvider {
     readonly name = 'scripted';

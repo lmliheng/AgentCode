@@ -15,10 +15,10 @@ import type {
     ModelResponse,
     TokenUsage,
     ToolDefinition,
-} from '../../types/AgentProvider.js';
-import type { ChatMessage } from '../../types/Message.js';
-import type { ModelDecision, PlanStep } from '../../types/ReAct.js';
-import type { SessionEventInput } from '../../persistence/events.js';
+} from '@lmliheng/acode-core';
+import type { ChatMessage } from '@lmliheng/acode-core';
+import type { ModelDecision, PlanStep } from '@lmliheng/acode-core';
+import type { SessionEventInput } from '@lmliheng/acode-core';
 
 type ScriptEntry =
     | { decision: ModelDecision; usage?: TokenUsage }

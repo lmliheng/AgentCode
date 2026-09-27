@@ -6,9 +6,9 @@
 // src/test/provider/deepseek-translation.test.ts。
 import { describe, it, expect, beforeAll } from 'vitest';
 import { DeepSeekProvider } from '../../provider/deepseek.provider.js';
-import type { ToolDefinition } from '../../types/AgentProvider.js';
-import type { ChatMessage } from '../../types/Message.js';
-import type { Action } from '../../types/ReAct.js';
+import type { ToolDefinition } from '@lmliheng/acode-core';
+import type { ChatMessage } from '@lmliheng/acode-core';
+import type { Action } from '@lmliheng/acode-core';
 
 const readFileTool: ToolDefinition = {
     name: 'read_file',

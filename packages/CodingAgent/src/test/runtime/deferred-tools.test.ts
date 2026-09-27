@@ -22,10 +22,10 @@ import type {
     AgentProviderConfig,
     ModelResponse,
     ToolDefinition,
-} from '../../types/AgentProvider.js';
-import type { ChatMessage, AssistantMessage, ToolMessage } from '../../types/Message.js';
-import type { ModelDecision } from '../../types/ReAct.js';
-import type { Tool } from '../../types/Tool.js';
+} from '@lmliheng/acode-core';
+import type { ChatMessage, AssistantMessage, ToolMessage } from '@lmliheng/acode-core';
+import type { ModelDecision } from '@lmliheng/acode-core';
+import type { Tool } from '@lmliheng/acode-core';
 
 /** 记录每次请求收到的消息与工具声明，并按脚本逐轮返回决策 */
 class CapturingProvider implements AgentProvider {

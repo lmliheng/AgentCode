@@ -1,6 +1,6 @@
 // src/tools/fetch_url.ts
 
-import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
+import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 
 interface FetchUrlParams extends ToolParams {
     url: string;               // 请求 URL

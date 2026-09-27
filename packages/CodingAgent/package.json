@@ -19,7 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
-    "verify": "npm run typecheck && npm test",
+    "verify": "pnpm run typecheck && pnpm test",
     "test:bat": "tsx --env-file=.env src/test/task-runner.ts",
     "test:cli": "vitest run src/test/cli/cli.test.ts",
     "cli": "tsx --env-file=.env src/cli.ts",
@@ -27,7 +27,7 @@
     "cli:dev": "tsx --env-file=.env src/cli.ts --dev",
     "cli:tui": "node --env-file=.env src/cli/dist/main.mjs",
     "cli:build": "vite build --config vite.cli.config.ts",
-    "p": "vite build --config vite.cli.config.ts && npm version patch && npm publish --access public --registry=https://registry.npmjs.org/"
+    "p": "vite build --config vite.cli.config.ts && pnpm version patch && pnpm publish --access public --registry=https://registry.npmjs.org/"
   },
   "keywords": [
     "agent",
@@ -38,17 +38,18 @@
   "license": "MIT",
   "type": "module",
   "devDependencies": {
-    "@types/node": "^22.20.2",
-    "@vitejs/plugin-vue": "^6.0.9",
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
     "@vue-tui/runtime": "^0.3.0",
     "@vue-tui/vite": "^0.3.1",
-    "tsx": "^4.23.13",
-    "typescript": "^7.0.2",
-    "vite": "8.2.1",
-    "vitest": "^5.0.1",
-    "vue": "^3.5.43"
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "vue": "catalog:"
   },
   "dependencies": {
+    "@lmliheng/acode-core": "workspace:*",
     "@anthropic-ai/sdk": "^0.128.0",
     "@google/generative-ai": "^0.24.1",
     "chalk": "^6.0.0",

@@ -2,7 +2,7 @@
 
 import { unlinkSync, rmdirSync, readdirSync, existsSync, statSync } from 'fs';
 import { join, resolve } from 'path';
-import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
+import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 
 interface DeleteFileParams extends ToolParams {
     path: string;              // 要删除的文件或空目录路径

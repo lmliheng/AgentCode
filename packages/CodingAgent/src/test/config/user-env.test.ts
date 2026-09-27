@@ -16,7 +16,7 @@ import {
     agentcodeHome,
     sessionsRoot,
     userEnvFile,
-} from '../../persistence/paths.js';
+} from '@lmliheng/acode-core';
 
 const KEY = 'DEEPSEEK_API_KEY';
 

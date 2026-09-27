@@ -2,7 +2,7 @@
 
 import { readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
-import type{ Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
+import type{ Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 
 interface ApplyDiffParams extends ToolParams {
     path: string;              // 要修改的文件路径

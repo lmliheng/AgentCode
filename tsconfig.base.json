@@ -1,0 +1,26 @@
+{
+  // AgentCode 各包的公共编译基线（照 penguin 的 packages 约定收敛的一套严格选项）。
+  // 包自己的 tsconfig.json 只写 extends + 差异项（rootDir/outDir/jsx 等）。
+  "compilerOptions": {
+    // 模块与目标
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "target": "esnext",
+    "types": ["node"],
+    "moduleDetection": "force",
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "noUncheckedSideEffectImports": true,
+
+    // 严格度（沿用本仓库既有设置，别放松）
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+
+    // 产物与互操作
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "skipLibCheck": true
+  }
+}

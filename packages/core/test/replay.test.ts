@@ -8,9 +8,9 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { replaySession } from '../../persistence/replay.js';
-import type { SessionEventType, StoredSessionEvent } from '../../persistence/events.js';
-import type { ModelDecision } from '../../types/ReAct.js';
+import { replaySession } from '../src/persistence/replay.js';
+import type { SessionEventType, StoredSessionEvent } from '../src/persistence/events.js';
+import type { ModelDecision } from '../src/types/ReAct.js';
 
 const CONTEXT = { sessionId: '20260922-100000-aaaaaa', workspaceRoot: 'C:/ws' };
 

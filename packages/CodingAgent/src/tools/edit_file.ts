@@ -2,7 +2,7 @@
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import type { Tool, ToolContext, ToolResult, ValidationResult, ToolParams } from '../types/Tool.js';
+import type { Tool, ToolContext, ToolResult, ValidationResult, ToolParams } from '@lmliheng/acode-core';
 
 export interface EditFileParams extends ToolParams {
     path: string;

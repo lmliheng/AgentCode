@@ -2,7 +2,7 @@
 
 import { renameSync, existsSync, mkdirSync } from 'fs';
 import { join, resolve, dirname } from 'path';
-import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
+import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 
 interface MoveFileParams extends ToolParams {
     source: string;            // 源路径

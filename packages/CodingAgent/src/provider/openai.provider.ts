@@ -1,4 +1,4 @@
-import type { AgentProvider } from '../types/AgentProvider.js'
+import type { AgentProvider } from '@lmliheng/acode-core'
 
 // export class OpenaiProvider implements AgentProvider {
    

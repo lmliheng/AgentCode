@@ -1,7 +1,7 @@
 
 import { execSync, type ExecSyncOptions, spawn, type ChildProcess } from 'child_process';
 import { join } from 'path';
-import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
+import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 
 interface RunCommandParams extends ToolParams {
     command: string;

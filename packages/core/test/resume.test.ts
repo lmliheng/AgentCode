@@ -10,8 +10,8 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { SessionStore, listSessions } from '../../persistence/session-store.js';
-import { formatSessionList, resolveResumeTarget } from '../../persistence/resume.js';
+import { SessionStore, listSessions } from '../src/persistence/session-store.js';
+import { formatSessionList, resolveResumeTarget } from '../src/persistence/resume.js';
 
 const SESSION_EARLY = '20260922-100000-aaaaaa';
 const SESSION_LATE = '20260922-110000-bbbbbb';

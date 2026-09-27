@@ -2,7 +2,7 @@
 
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative, extname } from 'path';
-import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
+import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 
 interface SearchCodeParams extends ToolParams {
     pattern: string;

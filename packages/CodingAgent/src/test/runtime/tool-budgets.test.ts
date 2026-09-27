@@ -15,10 +15,10 @@ import { SearchCodeTool } from '../../tools/search_code.js';
 import { ListFilesTool } from '../../tools/list_files.js';
 import { ReadDirectoryTool } from '../../tools/read_directory.js';
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
-import type { Tool, ToolParams } from '../../types/Tool.js';
-import type { AgentRuntimeConfig } from '../../types/Runtime.js';
-import type { AgentProvider, AgentProviderConfig, ModelResponse } from '../../types/AgentProvider.js';
-import type { ChatMessage, ToolMessage } from '../../types/Message.js';
+import type { Tool, ToolParams } from '@lmliheng/acode-core';
+import type { AgentRuntimeConfig } from '@lmliheng/acode-core';
+import type { AgentProvider, AgentProviderConfig, ModelResponse } from '@lmliheng/acode-core';
+import type { ChatMessage, ToolMessage } from '@lmliheng/acode-core';
 
 /** 跑一次「动作 + 完成」，取回送入模型的工具结果内容 */
 async function captureToolResultContent(

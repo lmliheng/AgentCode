@@ -11,7 +11,7 @@
 // 应用认识的那几个 —— 所以那个文件只该放配置。
 
 import { existsSync } from 'node:fs';
-import { userEnvFile } from '../persistence/paths.js';
+import { userEnvFile } from '@lmliheng/acode-core';
 
 /**
  * 本应用从用户级 .env 读取的键。

@@ -3,7 +3,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { FetchUrlTool } from '../../tools/fetch_url.js';
 import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
-import type { ToolContext } from '../../types/Tool.js';
+import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('FetchUrlTool', () => {
     let workspaceDir: string;

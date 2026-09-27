@@ -11,9 +11,9 @@ import { ReadFileTool } from '../../tools/read_file.js';
 import { CreateFileTool } from '../../tools/create_file.js';
 import { RunCommandTool } from '../../tools/run_command.js';
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
-import type { AgentProvider, AgentProviderConfig, ModelResponse } from '../../types/AgentProvider.js';
-import type { ChatMessage } from '../../types/Message.js';
-import type { ModelDecision } from '../../types/ReAct.js';
+import type { AgentProvider, AgentProviderConfig, ModelResponse } from '@lmliheng/acode-core';
+import type { ChatMessage } from '@lmliheng/acode-core';
+import type { ModelDecision } from '@lmliheng/acode-core';
 
 /** 按脚本逐轮返回决策的 Provider */
 class ScriptedProvider implements AgentProvider {

@@ -6,7 +6,7 @@ import { writeFileSync } from 'fs';
 import { join } from 'path';
 import { GitOperationTool } from '../../tools/git_operation.js';
 import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
-import type { ToolContext } from '../../types/Tool.js';
+import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('GitOperationTool', () => {
     let workspaceDir: string;

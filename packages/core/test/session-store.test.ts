@@ -18,7 +18,7 @@ import {
   listSessions,
   parseEventLines,
   rebuildWorkspaceIndex,
-} from '../../persistence/session-store.js';
+} from '../src/persistence/session-store.js';
 import {
   normalizeWorkspaceRoot,
   sessionDir,
@@ -28,7 +28,7 @@ import {
   sessionsRoot,
   SESSIONS_ROOT_ENV,
   workspaceIndexFile,
-} from '../../persistence/paths.js';
+} from '../src/persistence/paths.js';
 
 const SESSION_A = '20260922-100000-aaaaaa';
 const SESSION_B = '20260922-110000-bbbbbb';

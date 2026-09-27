@@ -10,7 +10,7 @@
 // 未列出的（非豁免）工具**仍然注册、仍然能执行**，只是 schema 不进请求，
 // 模型改用 tool_search 取 schema、tool_call 调用。
 
-import type { Tool } from '../types/Tool.js';
+import type { Tool } from '@lmliheng/acode-core';
 
 /** 检索延迟工具的声明，不改动当前的工具列表 */
 export const TOOL_SEARCH = 'tool_search';

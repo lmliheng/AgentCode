@@ -27,8 +27,8 @@ import { DeepSeekProvider } from '../provider/deepseek.provider.js';
 import { AgentRuntime } from '../runtime/agent.runtime.js';
 import { ToolRegistry } from '../tools/ToolRegistry.js';
 import { config } from '../config/default.js';
-import { SessionStore } from '../persistence/session-store.js';
-import { formatSessionList, resolveResumeTarget } from '../persistence/resume.js';
+import { SessionStore } from '@lmliheng/acode-core';
+import { formatSessionList, resolveResumeTarget } from '@lmliheng/acode-core';
 
 import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -37,7 +37,7 @@ import path from 'node:path';
 export type Task = [title: string, task: string];
 
 import { taskList } from './tasks.js'
-import type { PriorRun } from '../types/Runtime.js';
+import type { PriorRun } from '@lmliheng/acode-core';
 
 const LOG_SUBDIR = path.join('run_test', 'log');
 

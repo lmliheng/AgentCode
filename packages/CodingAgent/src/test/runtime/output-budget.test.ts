@@ -16,14 +16,14 @@ import {
     TRUNCATION_MARKER,
     NO_OUTPUT_PLACEHOLDER,
     DEFAULT_OUTPUT_BUDGET,
-} from '../../output-budget.js';
-import type { OutputBudget } from '../../output-budget.js';
+} from '@lmliheng/acode-core';
+import type { OutputBudget } from '@lmliheng/acode-core';
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
-import type { Tool, ToolParams, ToolResult, ValidationResult } from '../../types/Tool.js';
-import type { AgentRuntimeConfig } from '../../types/Runtime.js';
-import type { AgentProvider, AgentProviderConfig, ModelResponse } from '../../types/AgentProvider.js';
-import type { ChatMessage, ToolMessage } from '../../types/Message.js';
+import type { Tool, ToolParams, ToolResult, ValidationResult } from '@lmliheng/acode-core';
+import type { AgentRuntimeConfig } from '@lmliheng/acode-core';
+import type { AgentProvider, AgentProviderConfig, ModelResponse } from '@lmliheng/acode-core';
+import type { ChatMessage, ToolMessage } from '@lmliheng/acode-core';
 
 /** 返回固定 data 的测试工具；budget 省略时表示「未声明预算」 */
 class FakeTool implements Tool<ToolParams> {

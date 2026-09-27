@@ -13,19 +13,19 @@ import { join } from 'node:path';
 
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
 import { ReadFileTool } from '../../tools/read_file.js';
-import { SessionStore } from '../../persistence/session-store.js';
-import { resolveResumeTarget } from '../../persistence/resume.js';
+import { SessionStore } from '@lmliheng/acode-core';
+import { resolveResumeTarget } from '@lmliheng/acode-core';
 
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
-import type { SessionEventInput } from '../../persistence/events.js';
+import type { SessionEventInput } from '@lmliheng/acode-core';
 import type {
   AgentProvider,
   AgentProviderConfig,
   ModelResponse,
   ToolDefinition,
-} from '../../types/AgentProvider.js';
-import type { ChatMessage } from '../../types/Message.js';
-import type { ModelDecision } from '../../types/ReAct.js';
+} from '@lmliheng/acode-core';
+import type { ChatMessage } from '@lmliheng/acode-core';
+import type { ModelDecision } from '@lmliheng/acode-core';
 
 /** 记录每次请求收到的消息，并按脚本逐轮返回决策 */
 class ScriptedProvider implements AgentProvider {

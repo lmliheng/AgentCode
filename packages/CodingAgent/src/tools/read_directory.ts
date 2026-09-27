@@ -7,7 +7,7 @@
  */
 import { readdirSync, statSync } from 'fs';
 import { join, relative, resolve } from 'path';
-import type{ Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '../types/Tool.js';
+import type{ Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 
 interface ReadDirectoryParams extends ToolParams {
     path?: string;             // 目录路径，默认工作区根目录
