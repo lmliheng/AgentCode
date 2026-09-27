@@ -14,10 +14,11 @@
 export const config = {
     tools: {
         eager: [
-            // 感知层：读文件、搜代码、列目录
+            // 感知层：读文件、搜代码、列目录、按通配符找文件
             'read_file',
             'search_code',
             'list_files',
+            'glob',
             // 动作层：改文件、跑命令、取网页
             'edit_file',
             'create_file',

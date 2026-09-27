@@ -10,6 +10,8 @@ export * from './edit_file.js';
 export * from './fetch_url.js';
 export * from './fs-guard.js';
 export * from './git_operation.js';
+export * from './glob-match.js';
+export * from './glob.js';
 export * from './list_files.js';
 export * from './move_file.js';
 export * from './read_directory.js';

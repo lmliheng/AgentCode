@@ -82,6 +82,23 @@ describe('ListFilesTool', () => {
             expect(entries[0].name).toBe('README.md');
         });
 
+        it('pattern 带通配符时按通配符匹配（从前传 "*.ts" 一条都匹配不到）', async () => {
+            const result = await tool.execute({
+                recursive: true,
+                pattern: '*.ts',
+            }, ctx);
+
+            expect(result.success).toBe(true);
+            const names = (result.data as any).entries.map((e: any) => e.name);
+            expect(names).toContain('main.ts');
+            expect(names).toContain('helper.ts');
+            expect(names).not.toContain('README.md');
+
+            // 不带通配符时仍是前缀匹配（旧行为，不该被这次修正带走）
+            const prefixed = await tool.execute({ recursive: true, pattern: 'const' }, ctx);
+            expect((prefixed.data as any).entries.map((e: any) => e.name)).toEqual(['constants.ts']);
+        });
+
         it('应该只返回文件', async () => {
             const result = await tool.execute({ 
                 includeDirs: false 

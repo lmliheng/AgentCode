@@ -28,15 +28,16 @@
 | 5 | `create_file` | `create_file.ts` | 是 | 是 | 未声明（全局兜底） |
 | 6 | `git_operation` | `git_operation.ts` | 否（延迟） | 是 | 未声明（全局兜底） |
 | 7 | `list_files` | `list_files.ts` | 是 | 否 | 12000 字符 / 400 行 |
-| 8 | `edit_file` | `edit_file.ts` | 是 | 是 | 未声明（全局兜底） |
-| 9 | `read_directory` | `read_directory.ts` | 否（延迟） | 否 | 12000 字符 / 400 行 |
-| 10 | `delete_file` | `delete_file.ts` | 否（延迟） | 是 | 未声明（全局兜底） |
-| 11 | `move_file` | `move_file.ts` | 否（延迟） | 是 | 未声明（全局兜底） |
-| 12 | `search_code` | `search_code.ts` | 是 | 否 | 12000 字符 / 400 行 |
-| 13 | `tool_search` | `tool_search.ts` | 恒常驻（桥，豁免白名单） | 否 | 未声明（全局兜底） |
-| 14 | `tool_call` | `tool_call.ts` | 恒常驻（桥，豁免白名单） | 否 | 未声明（全局兜底） |
+| 8 | `glob` | `glob.ts` | 是 | 否 | 12000 字符 / 400 行 |
+| 9 | `edit_file` | `edit_file.ts` | 是 | 是 | 未声明（全局兜底） |
+| 10 | `read_directory` | `read_directory.ts` | 否（延迟） | 否 | 12000 字符 / 400 行 |
+| 11 | `delete_file` | `delete_file.ts` | 否（延迟） | 是 | 未声明（全局兜底） |
+| 12 | `move_file` | `move_file.ts` | 否（延迟） | 是 | 未声明（全局兜底） |
+| 13 | `search_code` | `search_code.ts` | 是 | 否 | 12000 字符 / 400 行 |
+| 14 | `tool_search` | `tool_search.ts` | 恒常驻（桥，豁免白名单） | 否 | 未声明（全局兜底） |
+| 15 | `tool_call` | `tool_call.ts` | 恒常驻（桥，豁免白名单） | 否 | 未声明（全局兜底） |
 
-统计：注册表内 14 个工具（常驻 7 + 延迟 5 + 桥 2）；其中 6 个声明了 `outputBudget`，
+统计：注册表内 15 个工具（常驻 8 + 延迟 5 + 桥 2）；其中 7 个声明了 `outputBudget`，
 8 个靠全局默认兜底。
 
 另有两个**协议工具不在注册表、也不可执行**，只用于触发状态迁移（定义见
@@ -152,12 +153,29 @@
 ```text
 列出工作区中的文件和目录，返回扁平列表；要看目录层级用 read_directory（不在当前工具列表里，需先经 tool_search 查询），两者不要同时调用。
 
-- pattern 是文件名前缀匹配，不是 glob：传 "*.ts" 会一条都匹配不到，应传 "test_" 这类前缀。
+- pattern 只匹配**文件名**：写通配符时按通配符匹配（"*.ts" 匹配所有 .ts），不写通配符时按前缀匹配（"test_" 匹配 test_*.ts）。它只决定「哪些条目被返回」，不影响递归 —— 子目录照常进入。要按路径通配（如 "src/**/*.ts"）请用 glob。
 - recursive 时会自动跳过 node_modules/.git/dist/.next/build/coverage。
 - 返回的 total 是实际条数，truncated 表示是否被截断；返回项的 path 是相对工作区根的路径，可直接作为其他工具的 path 参数。
 ```
 
-### 序号 8 · `edit_file`
+### 序号 8 · `glob`
+
+- 实现：`glob.ts`（匹配器在 `glob-match.ts`）
+- 首轮下发：是 ｜ 需审批：否 ｜ 输出预算：12000 字符 / 400 行
+- 描述原文：
+
+```text
+按通配符查找文件路径（找文件用这个，不要拿 list_files 的 pattern 凑）。
+
+- 支持 *（不跨 /）、?（单个字符）、**（跨目录）、{a,b}（多选一）：如 "src/**/*.{ts,tsx}"。
+- 模式里不写 / 时按「任意目录下的这个文件名」理解："*.md" 等同于 "**/*.md"。
+- 只返回文件，不返回目录；默认跳过 node_modules/.git/dist/.next/build/coverage。
+- path 只用来缩小搜索范围；匹配与返回的路径始终相对工作区根，可直接给其他工具用。
+- 结果按路径排序，默认最多 200 条；total 是命中总数，truncated 表示被截断。
+- 要看目录结构用 read_directory，要按内容找用 search_code。
+```
+
+### 序号 9 · `edit_file`
 
 - 实现：`edit_file.ts`
 - 首轮下发：是 ｜ 需审批：是 ｜ 输出预算：未声明
@@ -173,7 +191,7 @@
 - 参数与 apply_diff 相同，但本工具把 new_string 按字面量写入；不要在两者之间混用。
 ```
 
-### 序号 9 · `read_directory`
+### 序号 10 · `read_directory`
 
 - 实现：`read_directory.ts`
 - 首轮下发：否（延迟） ｜ 需审批：否 ｜ 输出预算：12000 字符 / 400 行
@@ -187,7 +205,7 @@
 - 返回项中的 path 是相对工作区根的路径，可直接作为其他工具的 path 参数。
 ```
 
-### 序号 10 · `delete_file`
+### 序号 11 · `delete_file`
 
 - 实现：`delete_file.ts`
 - 首轮下发：否（延迟） ｜ 需审批：是 ｜ 输出预算：未声明
@@ -200,7 +218,7 @@
 - force 会跳过人工确认直接删除，只在已经明确要删时使用。
 ```
 
-### 序号 11 · `move_file`
+### 序号 12 · `move_file`
 
 - 实现：`move_file.ts`
 - 首轮下发：否（延迟） ｜ 需审批：是 ｜ 输出预算：未声明
@@ -212,7 +230,7 @@
 - source 与 destination 都必须在工作区内，不能跨工作区移动；两者相同时会被拒绝。
 ```
 
-### 序号 12 · `search_code`
+### 序号 13 · `search_code`
 
 - 实现：`search_code.ts`
 - 首轮下发：是 ｜ 需审批：否 ｜ 输出预算：12000 字符 / 400 行
@@ -225,7 +243,7 @@
 - 每行最多返回一条匹配；truncated 表示结果是否被截断。
 ```
 
-### 序号 13 · `tool_search`
+### 序号 14 · `tool_search`
 
 - 实现：`tool_search.ts`
 - 首轮下发：恒常驻（桥工具，豁免白名单） ｜ 需审批：否 ｜ 输出预算：未声明
@@ -243,7 +261,7 @@
 - "关键词短语" —— 关键词匹配，最多返回 max_results 条
 ```
 
-### 序号 14 · `tool_call`
+### 序号 15 · `tool_call`
 
 - 实现：`tool_call.ts`
 - 首轮下发：恒常驻（桥工具，豁免白名单） ｜ 需审批：否 ｜ 输出预算：未声明
@@ -268,7 +286,7 @@
 
 | 候选工具 | 缺口证据 | 同类实现 | 建议 |
 |---|---|---|---|
-| `glob`（按通配符找文件） | `list_files.ts` 描述原文：「pattern 是文件名前缀匹配，不是 glob：传 `*.ts` 会一条都匹配不到」；`read_directory` 只给树、不按模式筛 | Qwen Code 有 `glob`；Glob 语义是同类实现的标准配置 | 进常驻（感知层） |
+| `glob`（按通配符找文件） | ~~`list_files.ts` 描述原文：「pattern 是文件名前缀匹配，不是 glob：传 `*.ts` 会一条都匹配不到」~~ **已实现（序号 8）**：`list_files.pattern` 改为带通配符即按通配符匹配，路径通配由新的 `glob` 工具承担 | Qwen Code 有 `glob` | ~~进常驻（感知层）~~ 已进常驻 |
 | `web_search`（关键词检索） | 只有 `fetch_url`，且它只支持 GET/HEAD、只认已知 URL，无法「先搜后取」 | Qwen Code 有此工具（本会话未启用，未直接验证） | 进常驻或延迟；注意需要搜索后端与配额 |
 | 后台/长驻命令（如 `run_background` + 日志读取 + `kill`） | `run_command.ts` 描述原文：「需要长期驻留的服务类命令也不适合」「命令阻塞执行」 | Qwen Code 有后台执行 + `monitor` + `task_stop` | 延迟；需要进程表与输出落盘 |
 | 非文本文件读取（图片/PDF/notebook） | `read_file` 用 `readFileSync(fullPath, 'utf-8')`，二进制读不出可用内容 | Qwen Code 的 `read_file` 直接支持 PNG/JPG/PDF/.ipynb | **先确认** DeepSeek 后端是否支持多模态输入，再决定做不做 |
@@ -325,8 +343,15 @@
 
 ---
 
-## 5. 两个已知的待决点（仅记录，未改动）
+## 5. 已知的待决点
 
 1. **`edit_file` 与 `apply_diff` 功能重叠**：参数完全相同（`path`/`old_string`/`new_string`/`expected_count`），
    `apply_diff` 自己的描述就建议改用 `edit_file`。保留哪一个需要决断，本次未动。
-2. **`glob` 能力缺失**：见第 3 节 A 组第一行。
+2. ~~**`glob` 能力缺失**~~ **已实现**（序号 8）：新增 `glob` 工具承担路径通配，
+   同时把 `list_files.pattern` 的「前缀匹配」语义放宽为「带通配符即按通配符匹配」，
+   并修掉一个连带缺陷 —— 原实现先按 pattern 判一次、不匹配就 `continue`，
+   于是 `recursive + pattern` 永远进不去名字不匹配的子目录（"*.ts" 一条都搜不到，
+   根因在这里而不只是前缀匹配）。
+3. **`list_files` 与 `glob` 的分工**：前者列目录（可含目录条目），后者找文件（只有文件）。
+   若将来要收敛工具数量，`glob` 是 `list_files(recursive)` 的超集，可考虑合并；
+   但两个名字都是模型熟悉的，目前保留。

@@ -7,6 +7,7 @@ import { DeleteFileTool } from './delete_file.js';
 import { EditFileTool } from './edit_file.js';
 import { FetchUrlTool } from './fetch_url.js';
 import { GitOperationTool } from './git_operation.js';
+import { GlobTool } from './glob.js';
 import { ListFilesTool } from './list_files.js';
 import { MoveFileTool } from './move_file.js';
 import { ReadDirectoryTool } from './read_directory.js';
@@ -58,6 +59,7 @@ export class ToolRegistry {
       new CreateFileTool(),
       new GitOperationTool(),
       new ListFilesTool(),
+      new GlobTool(),
       new EditFileTool(),
       new ReadDirectoryTool(),
       new DeleteFileTool(),

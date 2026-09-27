@@ -4,6 +4,7 @@ import { readdirSync, statSync } from 'fs';
 import { join, relative, resolve } from 'path';
 import type{ Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 import { resolveInWorkspace } from './fs-guard.js';
+import { matchesNamePattern } from './glob-match.js';
 
 
 /**
@@ -15,7 +16,7 @@ interface ListFilesParams extends ToolParams {
     path?: string;             // 起始路径，默认工作区根目录
     recursive?: boolean;       // 是否递归，默认 false
     depth?: number;            // 递归深度，默认无限制（仅 recursive=true 时有效）
-    pattern?: string;          // glob 模式过滤（简化版：只支持前缀匹配）
+    pattern?: string;          // 文件名过滤：不带通配符时按前缀，带通配符时按通配符
     includeDirs?: boolean;     // 是否包含目录，默认 true
     includeFiles?: boolean;    // 是否包含文件，默认 true
     maxResults?: number;       // 最大结果数，默认 200
@@ -34,7 +35,7 @@ export class ListFilesTool implements Tool<ListFilesParams> {
     name = 'list_files';
     description = `列出工作区中的文件和目录，返回扁平列表；要看目录层级用 read_directory（不在当前工具列表里，需先经 tool_search 查询），两者不要同时调用。
 
-- pattern 是文件名前缀匹配，不是 glob：传 "*.ts" 会一条都匹配不到，应传 "test_" 这类前缀。
+- pattern 只匹配**文件名**：写通配符时按通配符匹配（"*.ts" 匹配所有 .ts），不写通配符时按前缀匹配（"test_" 匹配 test_*.ts）。它只决定「哪些条目被返回」，不影响递归 —— 子目录照常进入。要按路径通配（如 "src/**/*.ts"）请用 glob。
 - recursive 时会自动跳过 node_modules/.git/dist/.next/build/coverage。
 - 返回的 total 是实际条数，truncated 表示是否被截断；返回项的 path 是相对工作区根的路径，可直接作为其他工具的 path 参数。`;
     
@@ -54,7 +55,7 @@ export class ListFilesTool implements Tool<ListFilesParams> {
                 path: { type: 'string', description: '起始路径（工作区内相对路径，默认为工作区根目录）' },
                 recursive: { type: 'boolean', description: '是否递归子目录（默认 false）' },
                 depth: { type: 'number', description: '递归层数上限，仅 recursive 为 true 时生效（默认不限）', minimum: 0 },
-                pattern: { type: 'string', description: '文件名前缀匹配，不是 glob：传 "test_" 匹配 test_*.ts（默认不过滤）' },
+                pattern: { type: 'string', description: '文件名过滤：带通配符按通配符（"*.ts"），不带则按前缀（"test_"）' },
                 includeDirs: { type: 'boolean', description: '是否包含目录（默认 true）' },
                 includeFiles: { type: 'boolean', description: '是否包含文件（默认 true）' },
                 maxResults: { type: 'number', description: '最大返回条数（默认 200）', minimum: 1 },
@@ -167,13 +168,14 @@ export class ListFilesTool implements Tool<ListFilesParams> {
                     continue; // 跳过无法访问的条目
                 }
 
-                // pattern 过滤（前缀匹配）
-                if (params.pattern && !item.startsWith(params.pattern)) {
-                    continue;
-                }
+                // pattern 过滤：只过滤「要不要返回这个条目」，与递归无关。
+                // 原来是先按 pattern 判一次、不匹配就 continue，于是父目录名不匹配时
+                // 整棵子树都不会被进入 —— recursive + pattern 只能命中「祖辈目录名
+                // 也匹配」的文件（"*.ts" 一条都搜不到就是这么来的）。
+                const matched = !params.pattern || matchesNamePattern(item, params.pattern);
 
                 if (stats.isDirectory()) {
-                    if (params.includeDirs !== false) {
+                    if (params.includeDirs !== false && matched) {
                         entries.push({
                             name: item,
                             path: relPath,
@@ -194,7 +196,7 @@ export class ListFilesTool implements Tool<ListFilesParams> {
                         );
                     }
                 } else if (stats.isFile()) {
-                    if (params.includeFiles !== false) {
+                    if (params.includeFiles !== false && matched) {
                         const ext = item.includes('.') ? item.substring(item.lastIndexOf('.')) : '';
                         entries.push({
                             name: item,
