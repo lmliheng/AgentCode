@@ -7,12 +7,13 @@
  * 运行：tsx spike/ast-shape-probe.ts
  */
 import { OfficeParser, type SupportedFileType } from 'officeparser'
+import { DATA_DIR, DOC_DIR } from './paths.js'
 
 const SAMPLES: Array<[string, SupportedFileType | undefined]> = [
-  ['C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data/compiler/ast.md', 'md'],
-  ['C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data/tips/curry.md', 'md'],
-  ['C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/rag-chunk/documents/报告.docx', undefined],
-  ['C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/rag-chunk/documents/resume.pdf', undefined],
+  [`${DATA_DIR}/compiler/ast.md`, 'md'],
+  [`${DATA_DIR}/tips/curry.md`, 'md'],
+  [`${DOC_DIR}/报告.docx`, undefined],
+  [`${DOC_DIR}/resume.pdf`, undefined],
 ]
 
 /** 去掉冗长字段，只保留结构信息 */

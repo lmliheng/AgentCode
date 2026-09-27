@@ -20,8 +20,8 @@ import { join } from 'node:path'
 import { parseFile } from '../src/parse/index.js'
 import { documentToChunks } from '../src/chunk/index.js'
 import { embedTexts } from '../src/embed/index.js'
+import { DATA_DIR } from './paths.js'
 
-const DATA_DIR = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data'
 const DIMENSIONS = 1024
 /** 样本 chunk 数。中心化需要估计均值向量，样本太少均值不可信 */
 const SAMPLE_SIZE = 64

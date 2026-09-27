@@ -13,11 +13,12 @@
  * 运行：tsx spike/md-parse-probe.ts
  */
 import { OfficeParser } from 'officeparser'
+import { DATA_DIR } from './paths.js'
 
 const SAMPLES = [
-  'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data/compiler/ast.md',
-  'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data/tips/curry.md',
-  'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data/tips/covarianceAndContravariance.md',
+  `${DATA_DIR}/compiler/ast.md`,
+  `${DATA_DIR}/tips/curry.md`,
+  `${DATA_DIR}/tips/covarianceAndContravariance.md`,
 ]
 
 function walk(nodes: any[], fn: (n: any, depth: number) => void, depth = 0) {

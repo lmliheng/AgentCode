@@ -16,10 +16,8 @@ import { join } from 'node:path'
 import { parseFile } from '../src/parse/index.js'
 import { documentToChunks } from '../src/chunk/index.js'
 import { embedTexts } from '../src/embed/index.js'
+import { DATA_DIR, DOC_DIR, SEED_SET } from './paths.js'
 
-const DATA_DIR = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data'
-const DOC_DIR = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/rag-chunk/documents'
-const SEED_SET = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/MyRAG/eval/queries.json'
 const DIMENSIONS = 1024
 const TOPK = 10
 

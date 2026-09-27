@@ -14,10 +14,11 @@
  */
 import { readFileSync } from 'node:fs'
 import { OfficeParser } from 'officeparser'
+import { DOC_DIR } from './paths.js'
 
 const SAMPLES = [
-  'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/rag-chunk/documents/报告.docx',
-  'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/rag-chunk/documents/resume.pdf',
+  `${DOC_DIR}/报告.docx`,
+  `${DOC_DIR}/resume.pdf`,
 ]
 
 /** 递归统计 AST 里出现的节点类型 */

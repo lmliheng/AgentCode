@@ -17,9 +17,9 @@ import { parseFile } from '../src/parse/index.js'
 import { documentToChunks } from '../src/chunk/index.js'
 import { embedTexts } from '../src/embed/index.js'
 import { QUERY_OUTPUT_FIELDS, dimensionOf } from '../src/query/index.js'
+import { DATA_DIR, ZVEC_DB } from './paths.js'
 
-const DB = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/MyRAG/zvec-data/myrag'
-const DATA_DIR = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data'
+const DB = ZVEC_DB // 见 paths.ts：原来写死了 Windows 绝对路径
 const DIMENSIONS = 1024
 
 const QUESTIONS = [

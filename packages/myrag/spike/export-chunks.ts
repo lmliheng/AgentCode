@@ -12,10 +12,9 @@ import { join } from 'node:path'
 import { parseFile } from '../src/parse/index.js'
 import { DEFAULT_CHUNK_OPTIONS, documentToChunks } from '../src/chunk/index.js'
 import type { Chunk, ParsedDocument } from '../src/types.js'
+import { DATA_DIR, DOC_DIR, spikeOutput } from './paths.js'
 
-const DATA_DIR = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data'
-const DOC_DIR = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/rag-chunk/documents'
-const OUTPUT = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/MyRAG/spike/chunk-samples.md'
+const OUTPUT = spikeOutput('chunk-samples.md') // 见 paths.ts：原来写死了 Windows 绝对路径
 
 const META = { category: 'typescript-doc', owner: 'learning', sourceVersion: 'v1' }
 

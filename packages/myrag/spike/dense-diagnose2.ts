@@ -22,12 +22,12 @@ import { join, relative, resolve } from 'node:path'
 import { parseFile } from '../src/parse/index.js'
 import { documentToChunks } from '../src/chunk/index.js'
 import { embedTexts } from '../src/embed/index.js'
+import { DATA_DIR, DOC_DIR, SEED_SET } from './paths.js'
 
 const ROOTS = [
-    { dir: 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data', extensions: /\.md$/i, skipJsx: true },
-    { dir: 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/rag-chunk/documents', extensions: /\.(md|docx|pdf)$/i, skipJsx: false },
+    { dir: DATA_DIR, extensions: /\.md$/i, skipJsx: true },
+    { dir: DOC_DIR, extensions: /\.(md|docx|pdf)$/i, skipJsx: false },
 ]
-const SEED_SET = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/MyRAG/eval/queries.json'
 const DIMENSIONS = 1024
 const SAMPLE = 30
 

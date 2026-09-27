@@ -4,8 +4,9 @@
  * 运行：tsx spike/unit-dump.ts
  */
 import { parseFile } from '../src/parse/index.js'
+import { DATA_DIR } from './paths.js'
 
-const FILE = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data/tips/infer.md'
+const FILE = `${DATA_DIR}/tips/infer.md` // 见 paths.ts：原来写死了 Windows 绝对路径
 
 const doc = await parseFile(FILE)
 

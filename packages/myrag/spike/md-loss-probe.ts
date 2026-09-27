@@ -11,8 +11,8 @@
 import { readFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseDocument } from '../src/parse/ast.js'
+import { DATA_DIR } from './paths.js'
 
-const DATA_DIR = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data'
 
 function walk(dir: string): string[] {
     const out: string[] = []

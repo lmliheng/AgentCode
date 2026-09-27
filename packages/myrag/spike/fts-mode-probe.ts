@@ -11,8 +11,9 @@
 import { resolve } from 'node:path'
 import { ZVecOpen } from '@zvec/zvec'
 import { QUERY_OUTPUT_FIELDS } from '../src/query/index.js'
+import { ZVEC_DB } from './paths.js'
 
-const DB = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/MyRAG/zvec-data/myrag'
+const DB = ZVEC_DB // 见 paths.ts：原来写死了 Windows 绝对路径
 
 interface Case {
     question: string

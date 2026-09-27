@@ -9,8 +9,9 @@
 import { readdirSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
 import { parseFile } from '../src/parse/index.js'
+import { DATA_DIR } from './paths.js'
 
-const ROOT = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data'
+const ROOT = DATA_DIR // 见 paths.ts：原来写死了 Windows 绝对路径
 
 function walk(dir: string): string[] {
     const out: string[] = []

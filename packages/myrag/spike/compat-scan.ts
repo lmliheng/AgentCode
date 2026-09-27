@@ -13,9 +13,8 @@ import { readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { parseFile } from '../src/parse/index.js'
 import { documentToChunks } from '../src/chunk/index.js'
+import { DATA_DIR, DOC_DIR } from './paths.js'
 
-const DATA_DIR = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data'
-const DOC_DIR = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/rag-chunk/documents'
 
 /** CJK 部首补充（U+2E80–U+2EFF）与 Kangxi 部首（U+2F00–U+2FDF） */
 const COMPAT = /[\u2e80-\u2fdf]/g

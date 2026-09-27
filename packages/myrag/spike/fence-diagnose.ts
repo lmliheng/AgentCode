@@ -5,8 +5,9 @@
  */
 import { parseDocument } from '../src/parse/ast.js'
 import { DEFAULT_CHUNK_OPTIONS, documentToChunks } from '../src/chunk/index.js'
+import { DATA_DIR } from './paths.js'
 
-const FILE = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data/tips/infer.md'
+const FILE = `${DATA_DIR}/tips/infer.md` // 见 paths.ts：原来写死了 Windows 绝对路径
 
 const doc = await parseDocument(FILE, { fileType: 'md' })
 const chunks = documentToChunks(doc, { category: 'x', owner: 'y', sourceVersion: 'v1' })

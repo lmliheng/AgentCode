@@ -23,8 +23,8 @@ import {
   ZVecIndexType,
   ZVecMetricType,
 } from '@zvec/zvec'
+import { DATA_DIR } from './paths.js'
 
-const DATA_DIR = 'C:/Users/Lenovo/Desktop/project/AgentCode/src/RAG/Milvus/data'
 const COLLECTION_DIR = new URL('./zvec-data/myrag_spike', import.meta.url).pathname.replace(/^\//, '')
 const DIM = 1024
 
