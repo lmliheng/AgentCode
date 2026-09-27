@@ -76,9 +76,39 @@ export interface AgentRunState {
     iterationCount: number;         // 思考-行动循环次数
     startTime: number;              // 开始时间戳
     fileChanges: FileChange[];      // 变更过的文件
+    /**
+     * 每次需要审批的操作及其决定。
+     *
+     * 这是审计的事实源：谁批准了什么、依据是什么（人 / 策略 / 超时）、什么时候。
+     * 之前审批只留一行 console.warn，事后无法回答这些问题（见 run_test/PRD.md 第 3 节）。
+     */
+    approvals: ApprovalRecord[];
     tokenUsage: TokenUsageRecord;   // 累计 token 用量
     contextSize: ContextSizeMetric; // 当前上下文大小
     stopReason?: StopReason;        // 停止的原因
+}
+
+
+/**
+ * 一次审批的记录。
+ *
+ * 只带审计需要的字段：动作、风险、结果、依据、时间。完整参数留在对应决策里。
+ */
+export interface ApprovalRecord {
+    /** PendingAction.id，与审批请求一一对应 */
+    id: string;
+    tool: string;
+    summary: string;
+    riskLevel: 'low' | 'medium' | 'high';
+    /** 受影响的文件路径（相对工作区根） */
+    affectedFiles: string[];
+    decision: 'approve' | 'reject';
+    /** 决定的来源：交互层的人 / 显式策略 / 等待超时 / 回调抛错 */
+    source: 'reviewer' | 'policy' | 'timeout' | 'error';
+    /** 请求创建时间 */
+    requestedAt: number;
+    /** 决定时间 */
+    decidedAt: number;
 }
 
 

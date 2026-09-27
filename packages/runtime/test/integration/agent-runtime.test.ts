@@ -130,6 +130,8 @@ console.log(greet('World'));
             {
                 workspacePath: workspaceDir,
                 maxIterations: 10,
+                // 无人可问的集成测试：显式放行（默认策略是拒绝）
+                approvalPolicy: 'auto-approve',
             }
         );
 
@@ -215,6 +217,8 @@ console.log(greet('World'));
             {
                 workspacePath: workspaceDir,
                 maxIterations: 10,
+                // 无人可问的集成测试：显式放行（默认策略是拒绝）
+                approvalPolicy: 'auto-approve',
             }
         );
 

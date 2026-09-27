@@ -7,6 +7,7 @@
 // messages 也存下来，就会出现两份会各自漂移的历史。
 
 import type {
+  ApprovalRecord,
   ModelDecision,
   Observation,
   PlanState,
@@ -22,6 +23,8 @@ export interface RestoredRun extends PriorRun {
   startTime: number;
   stopReason?: StopReason;
   verification?: TaskVerificationResult;
+  /** 这次 run 里的审批记录（审计用，不参与消息派生） */
+  approvals: ApprovalRecord[];
 }
 
 export interface SessionReplayStats {
@@ -117,6 +120,21 @@ export function replaySession(
         break;
       }
 
+      case 'approval': {
+        const approval = readApproval(event.payload);
+        if (approval === null) {
+          stats.skippedMalformed += 1;
+          continue;
+        }
+        if (current === null) {
+          stats.orphaned += 1;
+          continue;
+        }
+        current.approvals.push(approval);
+        stats.applied += 1;
+        break;
+      }
+
       case 'plan_updated': {
         const plan = readPlan(event.payload);
         if (plan === null) {
@@ -191,7 +209,20 @@ function newRun(started: { taskId: string; taskDescription: string; startTime: n
     },
     decisions: [],
     observations: [],
+    approvals: [],
   };
+}
+
+function readApproval(payload: unknown): ApprovalRecord | null {
+  const record = asRecord(payload);
+  if (record === null) return null;
+
+  const approval = asRecord(record.approval);
+  if (approval === null) return null;
+  if (typeof approval.tool !== 'string') return null;
+  if (approval.decision !== 'approve' && approval.decision !== 'reject') return null;
+
+  return record.approval as ApprovalRecord;
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {

@@ -620,6 +620,17 @@ async function main(): Promise<void> {
       console.log(chalk.yellow('  ! 部分轮次未报告缓存命中量，上面的缓存数为偏低值'));
     }
 
+    // 审批的审计：谁批准/拒绝了什么。原来是只留一行 warn，事后无从查起
+    const approvals = result.state.approvals;
+    if (approvals.length > 0) {
+      const approved = approvals.filter((record) => record.decision === 'approve').length;
+      console.log(chalk.dim(`  · 审批 ${approvals.length} 次（批准 ${approved} / 拒绝 ${approvals.length - approved}）`));
+      for (const record of approvals) {
+        const mark = record.decision === 'approve' ? chalk.green('✓') : chalk.red('✗');
+        console.log(chalk.dim(`    ${mark} [${record.source}] ${record.summary}`));
+      }
+    }
+
     const persistence = runtime.getPersistenceStatus();
     if (persistence.degraded) {
       console.log(chalk.red(`  ✗ 持久化降级：${persistence.error}`));

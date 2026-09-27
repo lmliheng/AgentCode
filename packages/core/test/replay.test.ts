@@ -127,6 +127,48 @@ describe('重放一次完整的 run', () => {
 });
 
 describe('容错', () => {
+  it('审批决定被还原进对应的 run（审计不随进程消失）', () => {
+    const approval = {
+      id: 'pending-1',
+      tool: 'run_command',
+      summary: '执行命令: git push',
+      riskLevel: 'medium' as const,
+      affectedFiles: [],
+      decision: 'reject' as const,
+      source: 'reviewer' as const,
+      requestedAt: 1100,
+      decidedAt: 1200,
+    };
+
+    const { runs, stats } = replaySession(
+      [
+        taskStarted(1, 'task-a', '做点事'),
+        event(2, 'decision', { decision: readFileAction }),
+        event(3, 'approval', { approval }),
+      ],
+      CONTEXT,
+    );
+
+    expect(runs).toHaveLength(1);
+    expect(runs[0]!.approvals).toEqual([approval]);
+    expect(stats.applied).toBe(3);
+  });
+
+  it('审批载荷损坏时只计数，不影响该 run 的其它事实', () => {
+    const { runs, stats } = replaySession(
+      [
+        taskStarted(1, 'task-a', '做点事'),
+        event(2, 'approval', { approval: { tool: 'run_command' } }),
+        event(3, 'decision', { decision: readFileAction }),
+      ],
+      CONTEXT,
+    );
+
+    expect(runs[0]!.approvals).toEqual([]);
+    expect(runs[0]!.decisions).toHaveLength(1);
+    expect(stats.skippedMalformed).toBe(1);
+  });
+
   it('未知事件类型被跳过并计数，不影响其它事件', () => {
     const restored = replaySession(
       [

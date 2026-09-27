@@ -16,6 +16,7 @@ import type {
     TaskVerificationResult,
     FileChange,
     Action,
+    ApprovalRecord,
 } from '@lmliheng/acode-core';
 
 import type { AgentRuntimeConfig } from '@lmliheng/acode-core'
@@ -39,6 +40,17 @@ interface FailureRecord {
     tool: string;
     error: string;
     timestamp: number;
+}
+
+/**
+ * 审批决定的来源。
+ *
+ * reviewer = 交互层的人拍板；policy = 没有交互层时按显式策略处理；
+ * timeout = 等超时（按拒绝）；error = 交互层回调抛错（按拒绝）。
+ */
+interface ApprovalOutcome {
+    decision: ApprovalDecision;
+    source: 'reviewer' | 'policy' | 'timeout' | 'error';
 }
 
 /** 各类决策里描述「一个动作」的共同形状（Action 本体或 BatchAction 的子项） */
@@ -359,6 +371,7 @@ export class AgentRuntime {
             iterationCount: 0,
             startTime: Date.now(),
             fileChanges: [],
+            approvals: [],
             tokenUsage: {
                 promptTokens: 0,
                 completionTokens: 0,
@@ -780,6 +793,18 @@ export class AgentRuntime {
                 const approval = await ctx.requestApproval(pending);
 
                 if (approval === 'reject') {
+                    // 既没有交互层、也没有显式声明策略 = 默认拒绝：这不是「用户说不」，
+                    // 而是「没人能说行」。此时继续循环只会让模型反复撞同一堵墙，
+                    // 所以停下来并给出明确的 stop reason。
+                    // 显式声明 auto-reject 的调用方是另一回事：那是「我要只读」，继续跑。
+                    if (this.config.requestApproval === undefined && this.config.approvalPolicy === undefined) {
+                        const message =
+                            '需要人工审批，但未配置 requestApproval，且 approvalPolicy 未显式声明（默认拒绝）';
+                        this.pushFailureObservation(effective, message);
+                        this.state.stopReason = { type: 'error', message };
+                        return false;
+                    }
+
                     this.pushFailureObservation(effective, '操作被人工拒绝');
                     return true;
                 }
@@ -880,14 +905,48 @@ export class AgentRuntime {
 
     /**
      * 同一动作内只解析一次审批决定，避免运行时与工具各问一遍。
+     *
+     * 决定解析出来的那一刻就写进 state 与事件流 —— 审计要的是「决定发生了」，
+     * 而不是「谁事后还记得」。
      */
     private async approveOnce(cache: ApprovalCache, pending: PendingAction): Promise<ApprovalDecision> {
         if (cache.decision) {
             return cache.decision;
         }
-        const decision = await this.resolveApproval(pending);
-        cache.decision = decision;
-        return decision;
+        const outcome = await this.resolveApproval(pending);
+        cache.decision = outcome.decision;
+        this.recordApproval(pending, outcome);
+        return outcome.decision;
+    }
+
+    /**
+     * 把一次审批决定写进状态与事件流。
+     *
+     * 同时回填 PendingAction 自己的 status/review —— 那份对象是给工具与调用方看的。
+     */
+    private recordApproval(pending: PendingAction, outcome: ApprovalOutcome): void {
+        const decidedAt = Date.now();
+        const record: ApprovalRecord = {
+            id: pending.id,
+            tool: pending.preview.tool,
+            summary: pending.preview.summary,
+            riskLevel: pending.preview.riskLevel,
+            affectedFiles: pending.preview.affectedFiles.map(file => file.path),
+            decision: outcome.decision,
+            source: outcome.source,
+            requestedAt: pending.createdAt,
+            decidedAt,
+        };
+
+        pending.status = outcome.decision === 'approve' ? 'approved' : 'rejected';
+        pending.review = {
+            reviewer: outcome.source,
+            action: outcome.decision,
+            reviewedAt: decidedAt,
+        };
+
+        this.state.approvals.push(record);
+        this.emit({ type: 'approval', payload: { approval: record } });
     }
 
 
@@ -898,12 +957,14 @@ export class AgentRuntime {
      *
      * 有交互层时完全由它决定；没有时按显式配置的策略处理，并告警一次。
      */
-    private async resolveApproval(pending: PendingAction): Promise<ApprovalDecision> {
-        if (this.config.requestApproval) {
-            return this.config.requestApproval(pending);
+    private async resolveApproval(pending: PendingAction): Promise<ApprovalOutcome> {
+        const reviewer = this.config.requestApproval;
+        if (reviewer) {
+            return this.askReviewer(reviewer, pending);
         }
 
-        const policy = this.config.approvalPolicy ?? 'auto-approve';
+        // 没有交互层：默认拒绝。放行必须是显式声明（approvalPolicy: 'auto-approve'）
+        const policy = this.config.approvalPolicy ?? 'auto-reject';
         if (!this.approvalWarned) {
             this.approvalWarned = true;
             console.warn(
@@ -911,7 +972,46 @@ export class AgentRuntime {
                 `待审批操作未经过人工确认：${pending.preview.summary}`
             );
         }
-        return policy === 'auto-approve' ? 'approve' : 'reject';
+        return { decision: policy === 'auto-approve' ? 'approve' : 'reject', source: 'policy' };
+    }
+
+    /**
+     * 向交互层要一个决定，并给等待加上时限。
+     *
+     * 时限来自 PendingAction.expiresAt（由 approvalTimeoutMs 决定）。到点按拒绝处理，
+     * 而不是无限等下去 —— 交互层卡住（readline 丢了那一个问题、终端断了）时，
+     * 之前的行为是整个 run 永远挂起，且没有任何报错。
+     */
+    private async askReviewer(
+        reviewer: (action: PendingAction) => Promise<ApprovalDecision>,
+        pending: PendingAction,
+    ): Promise<ApprovalOutcome> {
+        const timeoutMs = Math.max(0, pending.expiresAt - Date.now());
+        let timer: ReturnType<typeof setTimeout> | undefined;
+
+        try {
+            const decision = await Promise.race([
+                reviewer(pending),
+                new Promise<'__timeout__'>((resolve) => {
+                    timer = setTimeout(() => resolve('__timeout__'), timeoutMs);
+                }),
+            ]);
+
+            if (decision === '__timeout__') {
+                console.warn(
+                    `[AgentRuntime] 审批等待超时（${timeoutMs}ms），按拒绝处理：${pending.preview.summary}`
+                );
+                return { decision: 'reject', source: 'timeout' };
+            }
+
+            return { decision, source: 'reviewer' };
+        } catch (e) {
+            // 交互层自己抛错（终端关了、readline 崩了）：同样按拒绝处理，别让它变成挂起
+            console.warn(`[AgentRuntime] 审批回调出错，按拒绝处理：${(e as Error).message}`);
+            return { decision: 'reject', source: 'error' };
+        } finally {
+            if (timer !== undefined) clearTimeout(timer);
+        }
     }
 
 
@@ -980,7 +1080,7 @@ export class AgentRuntime {
                 riskLevel: this.assessRisk(action),
             },
             status: 'pending',
-            expiresAt: Date.now() + 5 * 60 * 1000,
+            expiresAt: Date.now() + (this.config.approvalTimeoutMs ?? 5 * 60 * 1000),
         };
 
         this.pendingActions.set(pending.id, pending);

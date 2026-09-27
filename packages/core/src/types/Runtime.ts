@@ -39,10 +39,21 @@ export interface AgentRuntimeConfig {
     requestApproval?: (action: PendingAction) => Promise<ApprovalDecision>;
 
     /**
-     * 没有交互层时使用的审批策略，默认 'auto-approve'（脚本 / 测试场景）。
-     * 只有未提供 requestApproval 时才生效；首次按策略放行时会输出告警。
+     * 没有交互层时使用的审批策略，**默认 'auto-reject'**。
+     *
+     * 默认拒绝而不是放行：requiring approval 的工具本来就要求人工拍板，无人可问时
+     * 放行等于「无人确认下执行破坏性命令」。要恢复旧的放行行为，必须显式写
+     * approvalPolicy: 'auto-approve'（脚本 / 测试场景），这样它就是一次有意的声明。
      */
     approvalPolicy?: ApprovalPolicy;
+
+    /**
+     * 等待人工审批的时限（毫秒），默认 300000（5 分钟）。
+     *
+     * 到点按拒绝处理并继续运行 —— 之前这个时限只写进 PendingAction.expiresAt，
+     * 没有任何地方读取，交互层卡住时整个 run 会永久挂起。
+     */
+    approvalTimeoutMs?: number;
 
     /** 验收命令的单条执行超时（毫秒），默认 120000 */
     verificationTimeoutMs?: number;

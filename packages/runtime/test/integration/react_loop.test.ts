@@ -140,7 +140,12 @@ console.log(greet('World'));
         runtime = new AgentRuntime(
             new MockProvider(decisions),
             tools,
-            { workspacePath: workspaceDir, maxIterations: 5 }
+            {
+                workspacePath: workspaceDir,
+                maxIterations: 5,
+                // 无人可问的集成测试：显式放行（默认策略是拒绝）
+                approvalPolicy: 'auto-approve',
+            }
         );
 
         const result = await runtime.run('读取 src/index.ts 的内容');
@@ -174,7 +179,12 @@ console.log(greet('World'));
         runtime = new AgentRuntime(
             new MockProvider(decisions),
             tools,
-            { workspacePath: workspaceDir, maxIterations: 5 }
+            {
+                workspacePath: workspaceDir,
+                maxIterations: 5,
+                // 无人可问的集成测试：显式放行（默认策略是拒绝）
+                approvalPolicy: 'auto-approve',
+            }
         );
 
         const result = await runtime.run('搜索 greet 函数');
@@ -215,7 +225,12 @@ console.log(greet('World'));
         runtime = new AgentRuntime(
             new MockProvider(decisions),
             tools,
-            { workspacePath: workspaceDir, maxIterations: 10 }
+            {
+                workspacePath: workspaceDir,
+                maxIterations: 10,
+                // 无人可问的集成测试：显式放行（默认策略是拒绝）
+                approvalPolicy: 'auto-approve',
+            }
         );
 
         const result = await runtime.run('在 src 目录下创建一个工具函数文件 utils.ts，包含一个 add 函数');
@@ -270,7 +285,12 @@ console.log(greet('World'));
         runtime = new AgentRuntime(
             new MockProvider(decisions),
             tools,
-            { workspacePath: workspaceDir, maxIterations: 10 }
+            {
+                workspacePath: workspaceDir,
+                maxIterations: 10,
+                // 无人可问的集成测试：显式放行（默认策略是拒绝）
+                approvalPolicy: 'auto-approve',
+            }
         );
 
         const result = await runtime.run('将 src/index.ts 中的 Hello 改为 Hi，并提交到 Git');
@@ -315,7 +335,12 @@ console.log(greet('World'));
         runtime = new AgentRuntime(
             new MockProvider(decisions),
             tools,
-            { workspacePath: workspaceDir, maxIterations: 5 }
+            {
+                workspacePath: workspaceDir,
+                maxIterations: 5,
+                // 无人可问的集成测试：显式放行（默认策略是拒绝）
+                approvalPolicy: 'auto-approve',
+            }
         );
 
         const result = await runtime.run('读取 non_existent_file.ts');
@@ -398,7 +423,12 @@ console.log(greet('World'));
         runtime = new AgentRuntime(
             new MockProvider(decisions),
             tools,
-            { workspacePath: workspaceDir, maxIterations: 10 }
+            {
+                workspacePath: workspaceDir,
+                maxIterations: 10,
+                // 无人可问的集成测试：显式放行（默认策略是拒绝）
+                approvalPolicy: 'auto-approve',
+            }
         );
 
         const result = await runtime.run('读取不存在的文件，然后重新规划');
@@ -439,7 +469,12 @@ console.log(greet('World'));
         runtime = new AgentRuntime(
             new MockProvider(decisions),
             tools,
-            { workspacePath: workspaceDir, maxIterations: 10 }
+            {
+                workspacePath: workspaceDir,
+                maxIterations: 10,
+                // 无人可问的集成测试：显式放行（默认策略是拒绝）
+                approvalPolicy: 'auto-approve',
+            }
         );
 
         const result = await runtime.run('读取 non_existent.ts');
@@ -479,7 +514,12 @@ console.log(greet('World'));
         runtime = new AgentRuntime(
             new MockProvider(decisions),
             tools,
-            { workspacePath: workspaceDir, maxIterations: 5 }
+            {
+                workspacePath: workspaceDir,
+                maxIterations: 5,
+                // 无人可问的集成测试：显式放行（默认策略是拒绝）
+                approvalPolicy: 'auto-approve',
+            }
         );
 
         const result = await runtime.run('同时读取 src/index.ts 和 package.json');

@@ -7,6 +7,7 @@
 // （尤其不放 messages —— 派生视图落盘后会在重建规则变化时与事实源失配）。
 
 import type {
+  ApprovalRecord,
   ContextSizeMetric,
   FileChange,
   ModelDecision,
@@ -30,6 +31,7 @@ export type SessionEventType =
   | 'task_started'
   | 'decision'
   | 'observation'
+  | 'approval'
   | 'plan_updated'
   | 'stopped'
   | 'verification';
@@ -56,6 +58,11 @@ export interface ObservationPayload {
   observation: Observation;
 }
 
+/** 一次审批决定。与 observation 分开记：审批是「人/策略的判断」，不是工具的结果 */
+export interface ApprovalPayload {
+  approval: ApprovalRecord;
+}
+
 export interface PlanUpdatedPayload {
   plan: PlanState;
 }
@@ -77,6 +84,7 @@ export interface SessionEventPayloads {
   task_started: TaskStartedPayload;
   decision: DecisionPayload;
   observation: ObservationPayload;
+  approval: ApprovalPayload;
   plan_updated: PlanUpdatedPayload;
   stopped: StoppedPayload;
   verification: VerificationPayload;
@@ -143,6 +151,7 @@ export function isKnownEventType(type: string): type is SessionEventType {
     type === 'task_started' ||
     type === 'decision' ||
     type === 'observation' ||
+    type === 'approval' ||
     type === 'plan_updated' ||
     type === 'stopped' ||
     type === 'verification'

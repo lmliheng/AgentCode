@@ -272,6 +272,9 @@ describe('运行时：声明集与桥解包', () => {
             maxIterations: 5,
             timeoutMs: 5000,
             eagerTools: allowList,
+            // 这些用例跑的是延迟写工具，明确声明「无交互层也放行」——
+            // 默认策略是拒绝，放行必须是显式选择
+            approvalPolicy: 'auto-approve',
         });
     }
 

@@ -346,3 +346,121 @@ describe('人工审批', () => {
     });
 
 });
+
+// ---------------------------------------------------------------------------
+// 审批的审计、超时与默认策略（run_test/PRD.md 第 3 节）
+// ---------------------------------------------------------------------------
+
+describe('人工审批：审计、超时与默认策略', () => {
+    let workspaceDir: string;
+
+    beforeEach(() => {
+        workspaceDir = createTestWorkspace({ 'src/a.ts': 'export const a = 1;\n' });
+    });
+
+    afterEach(() => {
+        cleanupTestWorkspace(workspaceDir);
+    });
+
+    /** 走一次「一个需审批动作 + 收尾」的 run，收集事件流 */
+    async function runGuarded(config: Record<string, unknown>) {
+        const tool = new GuardedTool();
+        const events: Array<{ type: string; payload: unknown }> = [];
+        const runtime = new AgentRuntime(
+            new ScriptedProvider([
+                initialPlanDecision(),
+                { type: 'Action', tool: tool.name, params: { path: 'src/a.ts' }, thought: '动手' },
+                { type: 'Final', answer: '完成' },
+            ]),
+            [tool],
+            {
+                workspacePath: workspaceDir,
+                maxIterations: 5,
+                onSessionEvent: (event: { type: string }) => events.push(event as { type: string; payload: unknown }),
+                ...config,
+            } as never,
+        );
+        const { state } = await runtime.run('做点需要审批的事');
+        return { tool, state, events };
+    }
+
+    it('通过的决定进 state，也进事件流（谁批准了什么，事后可查）', async () => {
+        const { state, events } = await runGuarded({ requestApproval: async () => 'approve' });
+
+        expect(state.approvals).toHaveLength(1);
+        const record = state.approvals[0]!;
+        expect(record.tool).toBe('guarded_tool');
+        expect(record.decision).toBe('approve');
+        expect(record.source).toBe('reviewer');
+        expect(record.summary.length).toBeGreaterThan(0);
+        expect(record.decidedAt).toBeGreaterThanOrEqual(record.requestedAt);
+
+        const approvalEvents = events.filter((event) => event.type === 'approval');
+        expect(approvalEvents).toHaveLength(1);
+    });
+
+    it('拒绝的决定同样留痕（原来只留一行 console.warn）', async () => {
+        const { tool, state } = await runGuarded({ requestApproval: async () => 'reject' });
+
+        expect(tool.executeCalls).toBe(0);
+        expect(state.approvals).toHaveLength(1);
+        expect(state.approvals[0]!.decision).toBe('reject');
+        expect(state.approvals[0]!.source).toBe('reviewer');
+    });
+
+    it('交互层一直不回话时按超时拒绝，run 不会永久挂起', async () => {
+        const never: () => Promise<'approve'> = () => new Promise(() => undefined);
+        const { tool, state } = await runGuarded({
+            requestApproval: never,
+            approvalTimeoutMs: 30,
+        });
+
+        expect(tool.executeCalls).toBe(0);
+        expect(state.approvals[0]!.decision).toBe('reject');
+        expect(state.approvals[0]!.source).toBe('timeout');
+        // 没有挂起：run 正常收了尾
+        expect(state.stopReason).toBeDefined();
+    });
+
+    it('交互层抛错时按拒绝收场，而不是把异常抛穿整个 run', async () => {
+        const { state } = await runGuarded({
+            requestApproval: async () => {
+                throw new Error('终端已断开');
+            },
+        });
+
+        expect(state.approvals[0]!.decision).toBe('reject');
+        expect(state.approvals[0]!.source).toBe('error');
+    });
+
+    it('没有交互层、也没声明策略时：默认拒绝并停下，而不是静默放行', async () => {
+        const { tool, state } = await runGuarded({});
+
+        // 破坏性操作没有发生 —— 这是默认值改变的核心
+        expect(tool.executeCalls).toBe(0);
+        expect(state.approvals[0]!.decision).toBe('reject');
+        expect(state.approvals[0]!.source).toBe('policy');
+
+        // 停下来，而不是让模型反复撞同一堵墙
+        expect(state.stopReason?.type).toBe('error');
+        expect(JSON.stringify(state.stopReason)).toContain('approvalPolicy');
+    });
+
+    it('显式声明 auto-approve 时照旧放行（脚本 / 测试场景）', async () => {
+        const { tool, state } = await runGuarded({ approvalPolicy: 'auto-approve' });
+
+        expect(tool.executeCalls).toBe(1);
+        expect(state.approvals[0]!.decision).toBe('approve');
+        expect(state.approvals[0]!.source).toBe('policy');
+        expect(state.stopReason?.type).toBe('task_completed');
+    });
+
+    it('显式声明 auto-reject 时只拒绝不停机（只读型 agent 的用法）', async () => {
+        const { tool, state } = await runGuarded({ approvalPolicy: 'auto-reject' });
+
+        expect(tool.executeCalls).toBe(0);
+        expect(state.approvals[0]!.decision).toBe('reject');
+        // 与「默认拒绝」的区别：这里继续走完循环
+        expect(state.stopReason?.type).toBe('task_completed');
+    });
+});
