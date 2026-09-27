@@ -97,6 +97,21 @@ describe('会话 CLI 的参数解析', () => {
     expect(() => parseArgs(['--task', 'x', '--output-format', 'yaml'])).toThrow(/output-format/);
   });
 
+  it('--provider 默认 deepseek，只认已实现的协议族', () => {
+    expect(parseArgs([]).provider).toBe('deepseek');
+    expect(parseArgs(['--provider', 'openai']).provider).toBe('openai');
+    expect(parseArgs(['--provider=openai']).provider).toBe('openai');
+    // 写错不能被当成默认值：用户会以为已经切过去了，实际还在打 DeepSeek
+    expect(() => parseArgs(['--provider', 'anthorpic'])).toThrow(/--provider/);
+  });
+
+  it('--base-url 默认不传（用提供方自己的端点），空值报错', () => {
+    expect(parseArgs([]).baseUrl).toBeUndefined();
+    expect(parseArgs(['--base-url', 'http://127.0.0.1:8000/v1/chat/completions']).baseUrl)
+      .toBe('http://127.0.0.1:8000/v1/chat/completions');
+    expect(() => parseArgs(['--base-url', ''])).toThrow(/base-url/);
+  });
+
   it('--output-format 只在一次性模式下成立，不静默忽略', () => {
     // 交互模式没有「一次运行的结果」可序列化；静默忽略会让人以为拿到了结构化产物
     expect(() => parseArgs(['--output-format', 'json'])).toThrow(/--task/);

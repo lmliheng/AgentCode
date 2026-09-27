@@ -42,7 +42,7 @@ import { fileURLToPath } from 'node:url';
 
 import chalk from 'chalk';
 
-import { DeepSeekProvider } from '@lmliheng/acode-providers';
+import { PROVIDER_API_KEY_ENV, createProvider } from '@lmliheng/acode-providers';
 import { AgentRuntime } from '@lmliheng/acode-runtime';
 import { loadProjectInstructions } from '@lmliheng/acode-runtime';
 import { ToolRegistry } from '@lmliheng/acode-tools';
@@ -65,7 +65,7 @@ import type { ObservationPayload, DecisionPayload } from '@lmliheng/acode-core';
 import type { PriorRun } from '@lmliheng/acode-core';
 import type { AgentRunState, ContextSizeMetric, StopReason, TaskVerificationResult } from '@lmliheng/acode-core';
 import type { PendingAction, ApprovalDecision } from '@lmliheng/acode-core';
-import type { CliArgs } from '@lmliheng/acode-core'
+import type { CliArgs, ProviderName } from '@lmliheng/acode-core'
 import type { McpConfigLoad, McpConnectedServer } from '@lmliheng/acode-tools';
 
 import { parseArgs } from './utils/ParseArgs.js'
@@ -79,6 +79,9 @@ const USAGE = `用法: acode [工作区路径] [选项]
   --list              只列出本工作区的会话，然后退出
   --task "任务"       只跑一条任务然后退出（不进入交互）
   --model 名称        模型名，默认 deepseek-chat
+  --provider 名称     提供方，默认 deepseek；openai 指 /chat/completions 协议，
+                      配 --base-url 可接 Moonshot / 通义 / 智谱 / 本机 Ollama / vLLM
+  --base-url URL      覆盖提供方端点（不传就用该提供方的默认端点）
   --max-iterations N  单条任务的循环上限，默认 50
   --max-tokens N      累计 token 上限（成本闸门），达到即停；默认不限制
   --output-format F   输出形态，只与 --task 一起用：
@@ -123,11 +126,12 @@ function formatCount(n: number): string {
  * 每轮任务前现读 `process.env`，而不是启动时抄一份留着用：`/auth` 改的正是这个
  * 环境变量，抄一份会让新 key 到下次启动才生效 —— 而它就是为了立刻生效才写的。
  */
-function requireApiKey(): string {
-  const key = process.env.DEEPSEEK_API_KEY;
+function requireApiKey(provider: ProviderName): string {
+  const envName = PROVIDER_API_KEY_ENV[provider];
+  const key = process.env[envName];
   if (!key) {
     throw new Error(
-      '缺少 DEEPSEEK_API_KEY。请把它设为环境变量，或写入：\n' +
+      `缺少 ${envName}（--provider ${provider} 用的就是它）。请把它设为环境变量，或写入：\n` +
       `  ${userEnvFile()}\n` +
       '（文件格式为 KEY=value 一行。）',
     );
@@ -145,20 +149,22 @@ function requireApiKey(): string {
  * 注意它不一定能决定下次启动用哪个 key：环境变量优先，若 DEEPSEEK_API_KEY 本来
  * 就由环境给出，这里写的值会被它盖住。/auth 会把这件事说清楚（见 apiKeyStatus）。
  */
-function writeUserEnvKey(key: string): void {
+function writeUserEnvKey(provider: ProviderName, key: string): void {
+  const envName = PROVIDER_API_KEY_ENV[provider];
   const file = userEnvFile();
   const existing = existsSync(file) ? readFileSync(file, 'utf8') : '';
 
   const kept = existing
     .split(/\r?\n/)
-    .filter((line) => !/^\s*DEEPSEEK_API_KEY\s*=/.test(line))
+    // 只动本提供方那一行：别家的 key 与用户自己的变量都原样留着
+    .filter((line) => !new RegExp(`^\\s*${envName}\\s*=`).test(line))
     // split 在末尾有换行的文件上会多出一个空串，自己收掉，避免越写越空
     .filter((line, index, lines) => !(line === '' && index === lines.length - 1));
 
   mkdirSync(dirname(file), { recursive: true });
-  writeFileSync(file, [...kept, `DEEPSEEK_API_KEY=${key}`, ''].join('\n'), 'utf8');
+  writeFileSync(file, [...kept, `${envName}=${key}`, ''].join('\n'), 'utf8');
 
-  process.env.DEEPSEEK_API_KEY = key;
+  process.env[envName] = key;
 }
 
 
@@ -587,12 +593,13 @@ async function main(): Promise<void> {
   //
   // 读之前先记一笔「环境里本来有没有」：/auth 要据此说清写进文件到底生不生效
   // （环境变量优先，文件里的值会被环境里的值盖住）。读过之后就分辨不出来了。
-  const keyFromEnvironment = process.env.DEEPSEEK_API_KEY !== undefined;
+  const keyEnvName = PROVIDER_API_KEY_ENV[args.provider];
+  const keyFromEnvironment = process.env[keyEnvName] !== undefined;
   loadUserEnvFile();
 
   // 启动时先确认能拿到 key：别让用户配了半天才发现缺。
   // 每轮任务前会再查一次（见 requireApiKey），/auth 换过的 key 要立刻生效。
-  requireApiKey();
+  requireApiKey(args.provider);
 
   // ---- 会话：续写被恢复的那个，或新开一个 ----
   let session: SessionStore;
@@ -759,9 +766,9 @@ async function main(): Promise<void> {
 
     apiKeyStatus: () =>
       keyFromEnvironment
-        ? 'API Key 来自环境变量 DEEPSEEK_API_KEY' +
+        ? `API Key 来自环境变量 ${keyEnvName}` +
           chalk.dim(`（环境变量优先，写入 ${userEnvFile()} 不会盖过它）`)
-        : `API Key 来自用户级文件 ${userEnvFile()}`,
+        : `API Key 来自用户级文件 ${userEnvFile()}（${keyEnvName}）`,
 
     // mcp / mcpConfig 都在下面才连上：这个闭包只会在交互循环里被调用（那时早已就绪），
     // 所以这里引用后声明的 const 是安全的，不必为了「定义顺序」把连接提前到 host 之前
@@ -773,7 +780,7 @@ async function main(): Promise<void> {
 
     saveApiKey: (key) => {
       try {
-        writeUserEnvKey(key);
+        writeUserEnvKey(args.provider, key);
         return { ok: true };
       } catch (error) {
         return { ok: false, reason: (error as Error).message };
@@ -854,9 +861,12 @@ async function main(): Promise<void> {
   /** 每轮一个全新的 runtime：state 不跨轮复用，历史靠 history 传递 */
   async function runOne(task: string): Promise<{ state: AgentRunState; verification: TaskVerificationResult | undefined; answer: string | undefined }> {
     // 模型与 key 每轮现取：/model 与 /auth 只改会话配置，改完的下一轮就该用上新值
-    const provider = new DeepSeekProvider({
-      apiKey: requireApiKey(),
+    // 提供方每轮现取：--provider 是启动参数，中途不可变（换协议要换密钥与端点，
+    // 「切换」在语义上就是换一次启动）。/auth 写的也是当前提供方那个环境变量。
+    const provider = createProvider(args.provider, {
+      apiKey: requireApiKey(args.provider),
       modelName: host.state.model,
+      ...(args.baseUrl !== undefined ? { baseUrl: args.baseUrl } : {}),
     });
 
     /**

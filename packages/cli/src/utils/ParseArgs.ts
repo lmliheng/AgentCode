@@ -1,9 +1,13 @@
 
 
-import type { CliArgs, OutputFormat } from '@lmliheng/acode-core'
+import type { CliArgs, OutputFormat, ProviderName } from '@lmliheng/acode-core'
 
 /** 需要接值的开关：写成 --name value 与 --name=value 两种都认 */
-const VALUE_FLAGS = new Set(['--task', '--model', '--max-iterations', '--max-tokens', '--output-format']);
+const VALUE_FLAGS = new Set([
+  '--task', '--model', '--provider', '--base-url', '--max-iterations', '--max-tokens', '--output-format',
+]);
+
+const PROVIDERS: readonly ProviderName[] = ['deepseek', 'openai'];
 
 const OUTPUT_FORMATS: readonly OutputFormat[] = ['text', 'json', 'stream-json'];
 
@@ -49,6 +53,18 @@ export function parseArgs(argv: readonly string[]): CliArgs {
     throw new Error('--max-tokens 必须是正整数');
   }
 
+  // 提供方先校验：模型名与密钥都要按它取，写错了却当成默认值，用户会以为切过去了
+  const providerRaw = values.get('--provider') ?? 'deepseek';
+  if (!PROVIDERS.includes(providerRaw as ProviderName)) {
+    throw new Error(`--provider 只能是 ${PROVIDERS.join(' / ')}（openai 指 /chat/completions 协议，可配 --base-url 指向兼容端点）`);
+  }
+  const provider = providerRaw as ProviderName;
+
+  const baseUrl = values.get('--base-url');
+  if (baseUrl !== undefined && baseUrl.trim() === '') {
+    throw new Error('--base-url 不能是空字符串');
+  }
+
   const outputFormatRaw = values.get('--output-format') ?? 'text';
   if (!OUTPUT_FORMATS.includes(outputFormatRaw as OutputFormat)) {
     throw new Error(`--output-format 只能是 ${OUTPUT_FORMATS.join(' / ')}`);
@@ -69,6 +85,8 @@ export function parseArgs(argv: readonly string[]): CliArgs {
     list: switches.has('--list'),
     task: values.get('--task'),
     model: values.get('--model') ?? 'deepseek-chat',
+    provider,
+    baseUrl,
     maxIterations,
     maxTokens,
     outputFormat,
