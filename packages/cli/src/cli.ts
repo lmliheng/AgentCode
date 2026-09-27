@@ -46,6 +46,7 @@ import { DeepSeekProvider } from '@lmliheng/acode-providers';
 import { AgentRuntime } from '@lmliheng/acode-runtime';
 import { loadProjectInstructions } from '@lmliheng/acode-runtime';
 import { ToolRegistry } from '@lmliheng/acode-tools';
+import { MCP_CONFIG_EXAMPLE, connectMcpServers, loadMcpConfig } from '@lmliheng/acode-tools';
 import { config } from '@lmliheng/acode-core';
 import { loadUserEnvFile } from '@lmliheng/acode-core';
 
@@ -64,6 +65,7 @@ import type { PriorRun } from '@lmliheng/acode-core';
 import type { AgentRunState, ContextSizeMetric, StopReason, TaskVerificationResult } from '@lmliheng/acode-core';
 import type { PendingAction, ApprovalDecision } from '@lmliheng/acode-core';
 import type { CliArgs } from '@lmliheng/acode-core'
+import type { McpConfigLoad, McpConnectedServer } from '@lmliheng/acode-tools';
 
 import { parseArgs } from './utils/ParseArgs.js'
 
@@ -433,6 +435,53 @@ export function describeObservation(tool: string, display: string | undefined): 
 }
 
 
+/**
+ * `/mcp` 的正文：已连接的 server 与它们的工具、没连上的原因、配置文件在哪。
+ *
+ * 三种状态都说清楚位置和形状，因为敲 /mcp 的人通常就是想配一个服务：
+ * 只回一句「没有 MCP 服务」，他还得回来问你文件该叫什么、放哪儿。
+ */
+export function formatMcpStatus(input: {
+  config: McpConfigLoad;
+  connections: readonly McpConnectedServer[];
+  failures: readonly { server: string; message: string }[];
+}): string {
+  const { config: loaded, connections, failures } = input;
+  const lines: string[] = [];
+
+  if (loaded.error !== null) {
+    lines.push(chalk.red(`✗ ${loaded.error}`));
+    lines.push(chalk.dim(`配置文件：${loaded.file}`));
+    lines.push(chalk.dim('改好之后重启 acode 生效：MCP 只在启动时连接一次。'));
+    return lines.join('\n');
+  }
+
+  if (connections.length === 0) {
+    lines.push(chalk.dim('还没有连接任何 MCP 服务。'));
+  } else {
+    lines.push(`已连接 ${connections.length} 个 MCP 服务：`);
+    for (const connection of connections) {
+      lines.push(`  ${chalk.green('✓')} ${chalk.cyan(connection.server)} ${chalk.dim(`（${connection.tools.length} 个工具）`)}`);
+      for (const tool of connection.tools) {
+        // 工具名是模型要调用的那个（已命名空间化），描述只取首行——列表里塞整段会看不出结构
+        const summary = tool.description.split('\n')[0]?.trim() ?? '';
+        lines.push(chalk.dim(`    ${tool.name}${summary === '' ? '' : `  ${summary}`}`));
+      }
+    }
+  }
+
+  for (const failure of failures) {
+    lines.push(chalk.yellow(`  ! ${failure.server} 连接失败：${failure.message}`));
+  }
+
+  lines.push(chalk.dim(`配置文件：${loaded.file}`));
+  if (connections.length === 0) {
+    lines.push(chalk.dim(`形状（新增后重启 acode 生效）：\n${MCP_CONFIG_EXAMPLE}`));
+  }
+
+  return lines.join('\n');
+}
+
 
 
 async function main(): Promise<void> {
@@ -505,7 +554,9 @@ async function main(): Promise<void> {
   }
 
   const registry = ToolRegistry.createDefault(config.tools.eager);
-  const tools = registry.getAllTools();
+  // 可变的：MCP 的远程工具在下面追加进来（createDefault 得到的那批保持原样，
+  // 顺序也不动 —— 工具顺序会随请求下发，插在中间会让提示前缀白变一次）
+  let tools = registry.getAllTools();
 
   let shuttingDown = false;
 
@@ -517,11 +568,51 @@ async function main(): Promise<void> {
     ? null
     : createInterface({ input: stdin, output: stdout, terminal: true });
 
+  /**
+   * 管道输入的排队区。
+   *
+   * readline 一建起来就开始读，而它只把行交给「提问时登记的那个回调」：
+   * 早于第一次提问到达的行以 'line' 事件发出去，那时还没有人接，就没了 ——
+   * `printf '/mcp\n' | acode` 于是表现成「敲的命令被吃掉」。启动要连 MCP
+   * （几百毫秒）之后这个窗口必然存在，所以这里自己收着：先到的排队，
+   * 提问时先从队里取，取空了才等下一行。
+   */
+  const pipedLines: string[] = [];
+  let awaitingLine: (() => void) | null = null;
+  let pipedClosed = false;
+
   if (pipeTerminal !== null) {
     const piped = pipeTerminal;
+
     piped.on('SIGINT', () => {
       shuttingDown = true;
       piped.close();
+    });
+
+    // 一律先入队再唤醒等待者：醒来时「队列空」于是只可能有一个含义 —— 管道关掉了
+    piped.on('line', (line) => {
+      pipedLines.push(line);
+      const awaiting = awaitingLine;
+      if (awaiting !== null) {
+        awaitingLine = null;
+        awaiting();
+      }
+    });
+
+    /**
+     * 管道读完 = 不会再有下一行。
+     *
+     * 原来这里什么都不做，于是下一次提问会撞上「readline 已关闭」并把它当异常抛出：
+     * 命令明明都跑完了，进程却带一个错误信息以退出码 1 收场。这里只唤醒等待者，
+     * 由 askUser 按「用户不再输入」处理（与 Ctrl+C 同一条路：干净退出）。
+     */
+    piped.on('close', () => {
+      pipedClosed = true;
+      const awaiting = awaitingLine;
+      if (awaiting !== null) {
+        awaitingLine = null;
+        awaiting();
+      }
     });
   }
 
@@ -532,7 +623,24 @@ async function main(): Promise<void> {
    * Ctrl+C 在这里表现为 InputAborted，由调用方决定是退出会话还是中止这一轮。
    */
   async function askUser(prompt: string, commands?: readonly SlashCommand[]): Promise<string> {
-    if (pipeTerminal !== null) return pipeTerminal.question(prompt);
+    if (pipeTerminal !== null) {
+      // question() 会自己打提示符；自己收输入就得自己打，否则管道下的记录少一段
+      process.stdout.write(prompt);
+
+      const queued = pipedLines.shift();
+      if (queued !== undefined) return queued;
+      // 队列已空且管道读完：不会再有下一行，按「输入结束」收场（输入结束 ≠ 敲了回车）
+      if (pipedClosed) throw new InputAborted();
+
+      await new Promise<void>((resolve) => {
+        awaitingLine = resolve;
+      });
+
+      // 被 'line' 唤醒时队列必然非空；队列空只可能是被 'close' 唤醒
+      const next = pipedLines.shift();
+      if (next !== undefined) return next;
+      throw new InputAborted();
+    }
 
     return commands === undefined ? readLine({ prompt }) : readLine({ prompt, commands });
   }
@@ -577,6 +685,14 @@ async function main(): Promise<void> {
           chalk.dim(`（环境变量优先，写入 ${userEnvFile()} 不会盖过它）`)
         : `API Key 来自用户级文件 ${userEnvFile()}`,
 
+    // mcp / mcpConfig 都在下面才连上：这个闭包只会在交互循环里被调用（那时早已就绪），
+    // 所以这里引用后声明的 const 是安全的，不必为了「定义顺序」把连接提前到 host 之前
+    mcpStatus: () => formatMcpStatus({
+      config: mcpConfig,
+      connections: mcp.connections,
+      failures: mcp.failures,
+    }),
+
     saveApiKey: (key) => {
       try {
         writeUserEnvKey(key);
@@ -612,6 +728,49 @@ async function main(): Promise<void> {
     console.log(chalk.dim('输入 /help 看命令，/quit 退出；行首敲 / 会列出候选'));
     if (args.dev) console.log(chalk.dim('dev 参数:'), args);
     console.log('');
+  }
+
+  // ---- MCP：连上工作区配置里的外部 server，把它们的工具并进工具表 ----
+  //
+  // 只在启动时读一次配置、连一次：工具声明会进首轮请求的前缀，会话中途增删会让整段
+  // 前缀缓存失效。代价是 /cd 换工作区之后 MCP 工具不变（/mcp 里也照实说）。
+  // 收尾句柄先声明后赋值：连接这一步若真出了问题（配置读取抛错、回调实现有 bug），
+  // finally 里的 `mcp` 还停在 TDZ，会在那里再抛一个 ReferenceError —— 把真正的原因盖掉。
+  let closeMcp: (() => Promise<void>) | null = null;
+
+  const mcpConfig = loadMcpConfig(host.state.workspace);
+  const mcp = await connectMcpServers(mcpConfig.servers, {
+    // server 的日志一律走 stderr：headless（--output-format json）下 stdout 只能有 JSON。
+    // 结构化输出下索性不打，否则 CI 日志里会混进外部服务的噪音。
+    onLog: (server, line) => {
+      if (!quiet) console.error(chalk.dim(`[mcp:${server}] ${line}`));
+    },
+    // 连接失败只警告不阻断：某个 server 配错（命令写错、依赖没装）不该让 CLI 用不了。
+    // 这条走 stderr 且不随 quiet 关闭 —— 它是失败，不是进度信息。
+    onError: (server, message) => {
+      console.error(chalk.yellow(`! MCP ${server}：${message}`));
+    },
+  });
+  closeMcp = () => mcp.close();
+  tools = [...tools, ...mcp.tools];
+
+  /**
+   * 常驻白名单：哪些工具的 schema 随首轮请求下发。
+   *
+   * 远程工具强制常驻 —— 用户连 MCP 就是为了让模型用上它，而被延迟的工具模型得先
+   * tool_search 才知道它存在。这么做不违反「声明集恒定」：这份列表在首轮请求之前
+   * 就定死了，整个会话都不再变（MCP 只在启动时连一次）。
+   */
+  const eagerToolNames = mcp.tools.length === 0
+    ? config.tools.eager
+    : [...config.tools.eager, ...mcp.tools.map((tool) => tool.name)];
+
+  if (!quiet) {
+    for (const connection of mcp.connections) {
+      console.log(chalk.dim(
+        `  · MCP ${connection.server} 已连接（${connection.tools.length} 个工具，敲 /mcp 看清单）`,
+      ));
+    }
   }
 
   /** 每轮一个全新的 runtime：state 不跨轮复用，历史靠 history 传递 */
@@ -654,7 +813,7 @@ async function main(): Promise<void> {
       maxIterations: args.maxIterations,
       // 只有显式给了上限才传：undefined 与 0 都表示「不限制」
       ...(args.maxTokens !== undefined ? { maxTokens: args.maxTokens } : {}),
-      eagerTools: config.tools.eager,
+      eagerTools: eagerToolNames,
       priorRuns: history,
       onStreamDelta: (delta) => {
         // 思考链 本轮不渲染：deepseek-chat 不返回它，等切到 thinking 模型再给它一块区域
@@ -876,6 +1035,10 @@ async function main(): Promise<void> {
     }
   } finally {
     pipeTerminal?.close();
+    // MCP 子进程必须在这里收掉，三条退出路径（交互结束、--task 跑完、抛异常）都经过
+    // 这个 finally：不收，管道的句柄会让事件循环一直活着 —— 表现为「/quit 敲了但命令行
+    // 不回来」，而子进程还会留在进程表里。
+    await closeMcp?.();
     // 结构化输出的 stdout 只能有 JSON：把「接着聊」这类人读内容挡在外面，
     // 否则调用方拿到的每一行都得先判一次是不是 JSON（--task 下这个 finally 照跑）。
     if (!quiet) {

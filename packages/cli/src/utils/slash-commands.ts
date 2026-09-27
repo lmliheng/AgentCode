@@ -57,6 +57,13 @@ export interface SlashCommandHost {
   /** 保存 API Key；失败时给出原因而不是抛错 */
   saveApiKey: (key: string) => SaveResult;
 
+  /**
+   * MCP 服务的现状：已连接的 server 与它们的工具、失败原因、配置位置。
+   *
+   * 与 sessions 一样给现成文本：命令表只负责打印，连接状态与配置路径都属于外面的世界。
+   */
+  mcpStatus: () => string;
+
   /** 读一个不回显的值（API Key 之类） */
   askSecret: (prompt: string) => Promise<string>;
 }
@@ -71,16 +78,6 @@ export interface SlashCommand {
    */
   takesArg: boolean;
   run: (arg: string, host: SlashCommandHost) => void | Promise<void>;
-}
-
-/** 还没接上实现的命令：注册进表、给描述、敲了说明白，不要静默什么都不做 */
-function placeholder(name: string, purpose: string): SlashCommand {
-  return {
-    name,
-    description: `${purpose}（尚未接入）`,
-    takesArg: true,
-    run: (_arg, host) => host.print(chalk.yellow(`  ! /${name} 尚未接入：${purpose}`)),
-  };
 }
 
 export const SLASH_COMMANDS: readonly SlashCommand[] = [
@@ -145,7 +142,14 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
     takesArg: false,
     run: (_arg, host) => host.print(host.usage()),
   },
-  placeholder('mcp', '管理 MCP 服务'),
+  // 只列不改：MCP 的连接发生在启动时（工具声明会进首轮请求的前缀，中途改会让缓存
+  // 整段失效），所以这里不接参数 —— 能改的只有配置文件，正文里会说它在哪
+  {
+    name: 'mcp',
+    description: '列出已连接的 MCP 服务与它们的工具',
+    takesArg: false,
+    run: (_arg, host) => host.print(host.mcpStatus()),
+  },
   {
     name: 'model',
     description: '切换模型',

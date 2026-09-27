@@ -30,6 +30,8 @@ function recorder(options: {
   saveApiKey?: (key: string) => SaveResult;
   /** askSecret 交回来的值 */
   secret?: string;
+  /** mcpStatus 交回来的文本 */
+  mcpStatus?: string;
 } = {}): {
   host: SlashCommandHost;
   printed: string[];
@@ -58,6 +60,7 @@ function recorder(options: {
       savedKeys.push(key);
       return options.saveApiKey?.(key) ?? { ok: true };
     },
+    mcpStatus: () => options.mcpStatus ?? '（MCP 现状）',
     askSecret: async (prompt) => {
       askedPrompts.push(prompt);
       return options.secret ?? '';
@@ -117,12 +120,13 @@ describe('命令表本身', () => {
     expect(printed).toEqual([]);
   });
 
-  it('尚未接入的命令敲了会说清楚，不装作执行了', async () => {
-    // MCP 客户端在本仓库还不存在（tools.md 里列为未做项），所以这条仍是占位
-    const { host, printed } = recorder();
+  it('/mcp 打印调用方给的 MCP 现状', async () => {
+    // CLI 在启动时连 MCP，连接结果与配置路径都由它自己攥着；命令表只负责打印
+    const { host, printed } = recorder({ mcpStatus: '已连接 1 个 MCP 服务：\n  ✓ demo' });
     await dispatch('/mcp', host);
 
-    expect(printed.join('\n')).toContain('尚未接入');
+    expect(printed.join('\n')).toContain('已连接 1 个 MCP 服务');
+    expect(printed.join('\n')).toContain('demo');
   });
 });
 

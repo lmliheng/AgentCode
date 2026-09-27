@@ -13,12 +13,14 @@ import {
   describeObservation,
   describeStopReason,
   describeVerification,
+  formatMcpStatus,
   paint,
   panel,
   viewOfRoundUsage,
 } from '../src/cli.js';
 
 import type { TaskVerificationResult } from '@lmliheng/acode-core';
+import type { McpConfigLoad, McpConnectedServer } from '@lmliheng/acode-tools';
 
 import { displayWidth, truncateToWidth } from '../src/utils/terminal-width.js';
 
@@ -294,5 +296,64 @@ describe('验收结论的人读翻译', () => {
 
     expect(described!.tone).toBe('bad');
     expect(described!.text).toContain('整体不通过');
+  });
+});
+
+describe('/mcp 的现状呈现', () => {
+  const file = '/ws/.acode/mcp.json';
+
+  function loaded(overrides: Partial<McpConfigLoad> = {}): McpConfigLoad {
+    return { file, servers: {}, error: null, ...overrides };
+  }
+
+  it('没有配置时指出文件该放哪、长什么样', () => {
+    const text = plain(formatMcpStatus({ config: loaded(), connections: [], failures: [] }));
+
+    // 「没有 MCP 服务」不够用：用户要的就是这个文件的位置与形状
+    expect(text).toContain(file);
+    expect(text).toContain('mcpServers');
+    expect(text).toContain('还没有连接任何 MCP 服务');
+  });
+
+  it('连上之后列出 server 与工具名（模型要调用的就是这个名字）', () => {
+    const connections: McpConnectedServer[] = [{
+      server: 'demo',
+      tools: [
+        { remote: 'echo', name: 'mcp__demo__echo', description: '回显\n第二行不显示' },
+      ],
+    }];
+
+    const text = plain(formatMcpStatus({ config: loaded(), connections, failures: [] }));
+
+    expect(text).toContain('已连接 1 个 MCP 服务');
+    expect(text).toContain('mcp__demo__echo');
+    expect(text).toContain('回显');
+    expect(text).not.toContain('第二行不显示');
+    // 连上了就不必再教一遍配置写法
+    expect(text).not.toContain('mcpServers');
+  });
+
+  it('连接失败与成功可以在同一份正文里共存', () => {
+    const text = plain(formatMcpStatus({
+      config: loaded(),
+      connections: [{ server: 'demo', tools: [] }],
+      failures: [{ server: 'broken', message: '启动失败：ENOENT' }],
+    }));
+
+    expect(text).toContain('demo');
+    expect(text).toContain('broken');
+    expect(text).toContain('ENOENT');
+  });
+
+  it('配置坏了先报错，并说清改完要重启', () => {
+    const text = plain(formatMcpStatus({
+      config: loaded({ error: '不是合法的 JSON' }),
+      connections: [],
+      failures: [],
+    }));
+
+    expect(text).toContain('不是合法的 JSON');
+    expect(text).toContain(file);
+    expect(text).toContain('重启');
   });
 });
