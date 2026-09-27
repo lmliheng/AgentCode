@@ -1,4 +1,4 @@
-import express from 'express'
+import express, { type Express } from 'express'
 import cors from 'cors'
 import multer from 'multer'
 
@@ -16,7 +16,7 @@ interface UploadBody {
     description?: string
 }
 
-export function createServer(config: serverConfig) {
+export function createServer(config: serverConfig): Express {
 
     // secret 从环境变量读取，config 中的值作为 fallback
     const secret = process.env.SECRET_KEY || config.secret
