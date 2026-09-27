@@ -18,7 +18,7 @@ packages/
   mcp-wxcloud/   wxcloudmcp                微信云托管上的 MCP 示例
   memory-short/  02-short-term-memory      短期 / 长期记忆示例
 examples/        学习示例（llm / langchain / context / mcp / memory / prompt / react / rag）
-scripts/         辅助脚本（ai_git.js 等）
+scripts/         发布脚本（publish-packages.sh）
 ```
 
 包之间的依赖是无环的：`core ← providers / tools ← runtime ← cli`。

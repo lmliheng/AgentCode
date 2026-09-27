@@ -196,9 +196,6 @@ importers:
       '@langchain/deepseek':
         specifier: ^1.1.8
         version: 1.1.13(@aws-sdk/credential-provider-node@3.972.83)(@langchain/core@1.2.11(@opentelemetry/api@1.9.1)(openai@7.15.0(@aws-sdk/credential-provider-node@3.972.83)(@smithy/signature-v4@5.7.3)(ws@8.21.3)(zod@4.6.5))(ws@8.21.3))(@smithy/signature-v4@5.7.3)(ws@8.21.3)
-      '@lmliheng/ai_git':
-        specifier: ^1.0.8
-        version: 1.0.8
       '@lmliheng/filesystem-mcp':
         specifier: ^1.0.7
         version: 1.0.8(@cfworker/json-schema@4.1.1)(supports-color@8.1.1)
@@ -900,9 +897,6 @@ packages:
 
   '@langchain/protocol@0.0.19':
     resolution: {integrity: sha512-9hKcRrH7cBX6gfutdfXPoft1OCchHe4FEpALoDJMl5Qu+n/YG5ynZmyu8+8cxORlPwHBoKTxggvXz+76M1yX1Q==}
-
-  '@lmliheng/ai_git@1.0.8':
-    resolution: {integrity: sha512-5uxrhoYV2HHVSwx7NnWANtCwMQfskmEXe4tioNQWViwRSHxy+60NlxNNFbWhojg9A1j+Dp3bg8uP+e5t0Im4mg==}
 
   '@lmliheng/filesystem-mcp@1.0.8':
     resolution: {integrity: sha512-1SoZvyk7BQc7l0nZd4igF8TWaozOD2oz7cIQt7q1BOaMjhkOpKOn0OxbP5l3rJoKJZH+Gu9oym0b0+X3+dh7/w==}
@@ -4453,8 +4447,6 @@ snapshots:
   '@langchain/protocol@0.0.18': {}
 
   '@langchain/protocol@0.0.19': {}
-
-  '@lmliheng/ai_git@1.0.8': {}
 
   '@lmliheng/filesystem-mcp@1.0.8(@cfworker/json-schema@4.1.1)(supports-color@8.1.1)':
     dependencies:
