@@ -1,6 +1,6 @@
 import { ref, reactive } from 'vue';
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
-import { DeepSeekProvider } from '../../provider/deepseek.provider.js'
+import { DeepSeekProvider } from '@lmliheng/acode-providers'
 import type { Tool } from '@lmliheng/acode-core'
 import type { PendingAction, ApprovalDecision } from '@lmliheng/acode-core';
 import { ReadFileTool } from '../../tools/read_file.js';

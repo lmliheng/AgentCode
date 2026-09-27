@@ -5,7 +5,7 @@
 // 被切开、JSON 行被切开、工具调用碎片横跨多块），这些都无法靠真实模型稳定复现。
 // 真实 API 的流式行为见 src/test/integration/ds_provider.test.ts。
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DeepSeekProvider } from '../../provider/deepseek.provider.js';
+import { DeepSeekProvider } from '../src/deepseek.provider.js';
 import type { ToolDefinition } from '@lmliheng/acode-core';
 import type { ChatMessage } from '@lmliheng/acode-core';
 import type { Action, BatchAction } from '@lmliheng/acode-core';

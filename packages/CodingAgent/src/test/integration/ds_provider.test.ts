@@ -5,7 +5,7 @@
 // 没有工具调用时是否回落为完成决策。确定性更强的情形（并行调用、参数损坏）见
 // src/test/provider/deepseek-translation.test.ts。
 import { describe, it, expect, beforeAll } from 'vitest';
-import { DeepSeekProvider } from '../../provider/deepseek.provider.js';
+import { DeepSeekProvider } from '@lmliheng/acode-providers';
 import type { ToolDefinition } from '@lmliheng/acode-core';
 import type { ChatMessage } from '@lmliheng/acode-core';
 import type { Action } from '@lmliheng/acode-core';

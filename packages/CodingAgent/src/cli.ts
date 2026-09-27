@@ -40,7 +40,7 @@ import { fileURLToPath } from 'node:url';
 
 import chalk from 'chalk';
 
-import { DeepSeekProvider } from './provider/deepseek.provider.js';
+import { DeepSeekProvider } from '@lmliheng/acode-providers';
 import { AgentRuntime } from './runtime/agent.runtime.js';
 import { ToolRegistry } from './tools/ToolRegistry.js';
 import { config } from './config/default.js';

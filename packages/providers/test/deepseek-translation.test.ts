@@ -8,7 +8,7 @@
 // 这组用例必须跑在真正会走的那条路上。非流式兜底路径由
 // src/test/provider/deepseek-streaming.test.ts 的单条用例守着。
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { DeepSeekProvider, DEFAULT_DEEPSEEK_BASE_URL } from '../../provider/deepseek.provider.js';
+import { DeepSeekProvider, DEFAULT_DEEPSEEK_BASE_URL } from '../src/deepseek.provider.js';
 import type { DeepSeekUsage, ToolDefinition } from '@lmliheng/acode-core';
 import type { ChatMessage } from '@lmliheng/acode-core';
 import type { Action, BatchAction } from '@lmliheng/acode-core';
