@@ -1,5 +1,5 @@
 import type { MilvusClient } from '@zilliz/milvus2-sdk-node'
-import { createEmbeddings } from '../rag-chunk/src/embedding/embedding.js'
+import { createEmbeddings } from '../../../packages/rag-chunk/src/embedding/embedding.js'
 
 
 export async function searchQuestion(client: MilvusClient, collectionName: string, question: string, filter: string, dimensions: 128 | 256 | 512) {

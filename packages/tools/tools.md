@@ -285,7 +285,7 @@
 
 | 候选工具 | 依据 | 注意 |
 |---|---|---|
-| MCP 客户端接入（动态注册 MCP 工具 + `read_mcp_resource`） | `agent.runtime.ts:1033` 注释原文已写「新增工具（含未来 MCP 接入的工具）」；仓库里已有 `src/MCP/MCP/wxcloudMCP` | 动态注册会改动工具列表与提示前缀，需要与 `splitDeclaredTools` 的「声明集恒定」设计对齐 |
+| MCP 客户端接入（动态注册 MCP 工具 + `read_mcp_resource`） | `agent.runtime.ts:1033` 注释原文已写「新增工具（含未来 MCP 接入的工具）」；仓库里已有 `packages/mcp-wxcloud` | 动态注册会改动工具列表与提示前缀，需要与 `splitDeclaredTools` 的「声明集恒定」设计对齐 |
 | 真正的 `apply_patch`（unified diff、多文件） | `apply_diff` 描述原文：「不接受 unified diff / patch 格式的输入」——名字暗示 patch，能力不是 patch | **不要复用 `apply_diff` 这个名字**，会加剧已有的命名误导 |
 | git 扩展（`push`/`pull`/`stash`/`show`） | `git_operation` 描述原文：「只有上述 7 种操作（没有 push/pull/stash/merge）」 | 这是**有意收敛**，扩之前先想清楚：`push` 是不可逆的共享状态操作，建议单独工具 + 强制审批，不要塞进 `git_operation` 的 enum |
 | `copy_file` / `make_dir` | 无 | 低价值：`create_file` 已自动建父目录 |

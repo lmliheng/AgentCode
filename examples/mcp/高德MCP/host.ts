@@ -5,8 +5,8 @@
 //  * server由高德 MCP server提供，使用streamableHTTP
 //  */
 // import {} from '@modelcontextprotocol/server'
-// import { callDeepSeek } from '../../../LLM/deepseek_client.js'
-// import { UserMessageCreate } from '../../../LLM/message_tools.js'
+// import { callDeepSeek } from '../../llm/deepseek_client.js'
+// import { UserMessageCreate } from '../../llm/message_tools.js'
 
 // /**
 //  * @重要函数

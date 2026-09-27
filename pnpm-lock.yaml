@@ -243,8 +243,6 @@ importers:
         specifier: 'catalog:'
         version: 4.23.15
 
-  packages/ReAct/AgentRuntime: {}
-
   packages/cli:
     dependencies:
       '@anthropic-ai/sdk':

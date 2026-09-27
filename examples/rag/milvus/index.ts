@@ -5,9 +5,9 @@ import { listDatabases } from './database.js'
 import { searchQuestion } from './search.js'
 import { entityCount } from './entity.js'
 
-import { AddEmbeddingProperty } from '../rag-chunk/src/embedding/embedding.js'
-import { readAllMDFiles } from '../rag-chunk/src/file/read.js'
-import { markdown_chunk } from '../rag-chunk/src/chunk/markdown/index.js'
+import { AddEmbeddingProperty } from '../../../packages/rag-chunk/src/embedding/embedding.js'
+import { readAllMDFiles } from '../../../packages/rag-chunk/src/file/read.js'
+import { markdown_chunk } from '../../../packages/rag-chunk/src/chunk/markdown/index.js'
 
 interface DataItem {
     chunkId: string,

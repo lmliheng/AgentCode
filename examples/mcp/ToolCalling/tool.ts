@@ -1,4 +1,4 @@
-import type { ToolDefinition, ToolCall, ToolMessage } from '../../LLM/deepseek_client.js'
+import type { ToolDefinition, ToolCall, ToolMessage } from '../../llm/deepseek_client.js'
 
 
 /**

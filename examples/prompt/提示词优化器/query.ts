@@ -4,8 +4,8 @@
  * 使用ds对用户提示词进行rewrite-query和muilti-query处理
  */
 
-import { callDeepSeek } from '../../LLM/deepseek_client.js'
-import { MessageAdd, SystemMessageCreate } from '../../LLM/message_tools.js'
+import { callDeepSeek } from '../../llm/deepseek_client.js'
+import { MessageAdd, SystemMessageCreate } from '../../llm/message_tools.js'
 
 import * as readline from 'readline'
 

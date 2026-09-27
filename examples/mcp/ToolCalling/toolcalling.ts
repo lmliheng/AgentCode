@@ -9,8 +9,8 @@
  * 我本地来调用后，加入到context，下一次循环继续，直到模型不再需要调用，也就是tool_calls数组为空
  */
 
-import { type ToolDefinition, type ToolCall, callDeepSeek, type AssistantMessage } from '../../LLM/deepseek_client.js'
-import { UserMessageCreate, MessageAdd, SystemMessageCreate, MessageCombine } from '../../LLM/message_tools.js'
+import { type ToolDefinition, type ToolCall, callDeepSeek, type AssistantMessage } from '../../llm/deepseek_client.js'
+import { UserMessageCreate, MessageAdd, SystemMessageCreate, MessageCombine } from '../../llm/message_tools.js'
 import { Tools } from './tool.js'
 
 
