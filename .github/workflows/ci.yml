@@ -21,9 +21,11 @@ jobs:
 
       # pnpm 版本取自 package.json 的 packageManager 字段，这里不写死，
       # 免得 CI 用的版本与本地（corepack 拉的那份）不是同一个
+      # 取 24：core/providers/tools/runtime 四个包的 engines 就写着 >=24，
+      # CI 用更低的版本等于在测一个我们不支持的运行时（甚至直接装在 engine 校验上失败）
       - uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: '24'
 
       - name: 启用 pnpm
         run: corepack enable
