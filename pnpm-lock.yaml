@@ -280,6 +280,9 @@ importers:
       tsx:
         specifier: ^4.23.13
         version: 4.23.15
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
 
   packages/MCP/host-client-server:
     dependencies:
@@ -323,6 +326,9 @@ importers:
       '@types/node':
         specifier: ^26.6.2
         version: 26.6.3
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.15
       typescript:
         specifier: ^7.0.2
         version: 7.0.2
@@ -357,6 +363,12 @@ importers:
       '@types/node':
         specifier: ^26.4.1
         version: 26.6.3
+      tsx:
+        specifier: ^4.23.13
+        version: 4.23.15
+      typescript:
+        specifier: ^7.0.2
+        version: 7.0.2
 
   packages/ReAct/AgentRuntime: {}
 
