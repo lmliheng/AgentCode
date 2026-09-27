@@ -13,7 +13,6 @@
 // 而且摘要这段话本身也要在之后每一轮重发。这里做的是确定性的收敛 ——
 // 保留最近的原样，更早的换成一行能读出自处与恢复方式的说明。
 
-import type { Observation } from './types/ReAct.js';
 import type { PriorRun } from './types/Runtime.js';
 
 /** 折叠摘要里保留的头部字符数：工具输出的开头通常是「这是什么」 */
@@ -177,10 +176,4 @@ function payloadLength(data: unknown): number {
         // 循环引用等：估算而已，算作零
         return 0;
     }
-}
-
-/** 观察的一行速写，用于日志与审计展示 */
-export function describeObservationForLog(observation: Observation): string {
-    const status = observation.result.success ? '成功' : `失败（${observation.result.error ?? '未记录原因'}）`;
-    return `${observation.action.tool} ${status}`;
 }

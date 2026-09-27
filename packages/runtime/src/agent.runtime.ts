@@ -13,6 +13,7 @@ import type {
     PlanState,
     PlanStep,
     Observation,
+    ObservationDelivery,
     StopReason,
     TaskVerificationResult,
     FileChange,
@@ -1077,6 +1078,12 @@ export class AgentRuntime {
      * 对话就不知道这件事发生过，模型下一次很可能重复执行同一个动作。
      */
     private recordObservation(observation: Observation): void {
+        // 送入模型的那一份的度量在这一处补齐（见 ObservationDelivery）：result 里留着的
+        // 是原始产出，两者之差才是输出预算省下的量。放在这里而不是各调用点，是因为
+        // 记录观察的路径不止一条（执行成功、未执行、失败回灌），漏掉哪条都会让
+        // 「token 花在哪」少一块。
+        observation.delivery ??= this.buildToolResultContent(observation.action, observation).delivery;
+
         this.state.observations.push(observation);
         this.emit({ type: 'observation', payload: { observation } });
     }
@@ -1613,28 +1620,54 @@ export class AgentRuntime {
      * 接入的工具）在忘记声明时也不会产生无限输出。
      */
     private toToolResultMessage(action: ActionLike, observation: Observation, toolCallId: string, folded = false): ToolMessage {
+        // 内容与记录观察时算的是同一套输入（工具与预算都不变），因此结果一致。
+        // 这里重算而不是把它们存进观察：送给模型的那一份可能很大，存下来会让
+        // 一段 trace 变成两份大对象。
+        const { content } = this.buildToolResultContent(action, observation);
+
+        return {
+            role: 'tool',
+            tool_call_id: toolCallId,
+            name: action.tool,
+            content: folded ? foldObservationContent(action.tool, content) : content,
+        };
+    }
+
+    /**
+     * 算出「这一份观察会以什么内容送进模型」，以及它相对原始产出缩了多少。
+     *
+     * 记录观察与构造消息都走这里：两处各写一遍截断逻辑，迟早会算出不一致的内容，
+     * 而 trace 的全部价值就在于它记录的是真正送出去的那一份（见 ReAct.ts 的
+     * ObservationDelivery）。
+     */
+    private buildToolResultContent(
+        action: ActionLike,
+        observation: Observation,
+    ): { content: string; delivery: ObservationDelivery } {
         const error = observation.result.error ?? '';
-
-        // 成功但没有任何输出内容：给明确占位，而不是让模型面对空内容
-        if (observation.result.success && !error && !hasOutputPayload(observation.result.data)) {
-            return {
-                role: 'tool',
-                tool_call_id: toolCallId,
-                name: action.tool,
-                content: folded ? foldObservationContent(action.tool, NO_OUTPUT_PLACEHOLDER) : NO_OUTPUT_PLACEHOLDER,
-            };
-        }
-
-        const payload = JSON.stringify({
+        const raw = JSON.stringify({
             success: observation.result.success,
             data: observation.result.data,
             error,
         });
 
+        // 成功但没有任何输出内容：给明确占位，而不是让模型面对空内容
+        if (observation.result.success && !error && !hasOutputPayload(observation.result.data)) {
+            return {
+                content: NO_OUTPUT_PLACEHOLDER,
+                delivery: {
+                    rawChars: raw.length,
+                    deliveredChars: NO_OUTPUT_PLACEHOLDER.length,
+                    truncated: false,
+                    fullOutputPath: null,
+                },
+            };
+        }
+
         const tool = this.tools.get(action.tool);
         const judgement = this.getContextBudget();
 
-        const outcome = applyOutputBudget(payload, {
+        const outcome = applyOutputBudget(raw, {
             toolName: action.tool,
             workspaceRoot: this.config.workspacePath,
             global: {
@@ -1658,10 +1691,13 @@ export class AgentRuntime {
             : outcome.content;
 
         return {
-            role: 'tool',
-            tool_call_id: toolCallId,
-            name: action.tool,
-            content: folded ? foldObservationContent(action.tool, content) : content,
+            content,
+            delivery: {
+                rawChars: raw.length,
+                deliveredChars: content.length,
+                truncated: outcome.truncated,
+                fullOutputPath: outcome.fullOutputPath ?? null,
+            },
         };
     }
 

@@ -210,10 +210,39 @@ export interface ContextSizeMetric {
 
 
 
+/**
+ * 观察「送进模型」的那一份的度量。
+ *
+ * `result.data` 存的是工具的原始产出，而真正发给模型的是经输出预算
+ * （见 output-budget）截断后的那一份 —— 两者可能差几个数量级。只留原始产出
+ * 的话，「token 花在哪」事后无法归因：看上去是一个 200 字符的结果，实际可能
+ * 送了 20000 字符；反过来，明明很大的一份结果也可能因为工具声明了预算而只送了
+ * 一小段。这里把两个数字都记下来。
+ *
+ * 注意它只覆盖「截断」，不覆盖「历史折叠」：折叠是每次请求现算的视图变换
+ * （见 context-fold），同一份观察在不同轮次送出的内容并不相同，因此那种变化
+ * 由 `context_folded` 事件记录，不写在这里。
+ */
+export interface ObservationDelivery {
+    /** 工具产出的原始字符数（data + error 的序列化长度） */
+    rawChars: number;
+    /** 实际送进模型的内容字符数（截断后） */
+    deliveredChars: number;
+    /** 是否被输出预算截断 */
+    truncated: boolean;
+    /** 截断时全文的落盘位置，未截断为 null */
+    fullOutputPath: string | null;
+}
+
 export interface Observation {
     action: Action;         // 导致此观察的原始 Action
     result: ToolResult;     // 工具执行结果
     timestamp: number;      // 记录时间戳
+    /**
+     * 送入模型的那一份的度量。老会话的观察没有这个字段（那时还没记），
+     * 读取方按「未知」处理，不要当成 0。
+     */
+    delivery?: ObservationDelivery;
 }
 
 

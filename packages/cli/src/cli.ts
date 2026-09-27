@@ -691,7 +691,12 @@ async function main(): Promise<void> {
             : chalk.red(`✗ ${observation.result.error ?? ''}`);
           // 细节由工具自己产出（见 ToolResult.display），CLI 只负责摆位置
           const label = describeObservation(observation.action.tool, observation.result.display);
-          console.log(`  ${chalk.dim('·')} ${chalk.cyan(label)} ${mark}`);
+          // 被输出预算截断时说一声：用户看到的量与实际送进模型的量差很多，
+          // 不说就会以为模型看到的也是这么点（见 ObservationDelivery）
+          const trimmed = observation.delivery?.truncated
+            ? chalk.dim(` （原文 ${formatCount(observation.delivery.rawChars)} 字符，实际送出 ${formatCount(observation.delivery.deliveredChars)}）`)
+            : '';
+          console.log(`  ${chalk.dim('·')} ${chalk.cyan(label)} ${mark}${trimmed}`);
         }
 
         // --dev 才逐轮打印：一轮一行在长任务里会把工具观察淹掉。
