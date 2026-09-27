@@ -1,6 +1,6 @@
 {
   "name": "@lmliheng/acode",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "coding Agent 对标 cloude code 的Agent应用",
   "bin": {
     "acode": "./dist/cli.js"
