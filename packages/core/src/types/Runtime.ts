@@ -1,5 +1,5 @@
 import type { PendingAction, ApprovalDecision, ApprovalPolicy } from './Tool.js'
-import type { ModelDecision, Observation, PlanState } from './ReAct.js'
+import type { DeliverableSpec, ModelDecision, Observation, PlanState } from './ReAct.js'
 import type { StreamDelta } from './AgentProvider.js'
 import type { OutputBudget } from '../output-budget.js'
 import type { SessionEventInput } from '../persistence/events.js'
@@ -62,6 +62,14 @@ export interface AgentRuntimeConfig {
 
     /** 验收命令的单条执行超时（毫秒），默认 120000 */
     verificationTimeoutMs?: number;
+
+    /**
+     * 调用方直接声明的交付物断言（相对工作区路径），与模型在计划里声明的一起核对。
+     *
+     * 两边都收是因为它们的来路不同：模型从任务描述里读出「该产出什么」（人没写死），
+     * 调用方用参数钉死自己知道的那部分（CI / eval 场景）。
+     */
+    deliverables?: DeliverableSpec[];
 
     /**
      * 同一个工具反复失败时，允许「回灌失败上下文、让模型重新规划」的次数，默认 1。

@@ -297,6 +297,51 @@ describe('DeepSeekProvider 边界翻译', () => {
         }
     });
 
+    it('重新规划的交付物声明一并收敛（裸字符串写法也认）', async () => {
+        const newPlan = JSON.stringify({
+            reason: '任务要产出报告文件',
+            newPlan: [{ id: '1', description: '产出报告', completionCriteria: '文件已写出' }],
+            // 模型的输出不可信：混进空路径、重复项与裸字符串，只应留下能核对的那些
+            deliverables: [
+                { path: 'results/weather.md', contains: '北京' },
+                { path: 'results/weather.md', contains: '重复项应被去掉' },
+                { path: '' },
+                'notes.md',
+            ],
+        });
+        fetchMock.mockResolvedValue(
+            deepSeekResponse([toolCallChoice([{ id: 'call_replan', name: 'request_replan', args: newPlan }])]),
+        );
+
+        const decision = (await provider.decide(userMessage, [readFileTool])).decision;
+
+        expect(decision.type).toBe('Replan');
+        if (decision.type === 'Replan') {
+            // 重复的路径只留第一次出现的那条（后写的 contains 不该覆盖前面的）
+            expect(decision.deliverables).toEqual([
+                { path: 'results/weather.md', contains: '北京' },
+                { path: 'notes.md' },
+            ]);
+        }
+    });
+
+    it('没有交付物声明时不产出该字段（空数组与没声明同义）', async () => {
+        const newPlan = JSON.stringify({
+            reason: '常规重规划',
+            newPlan: [{ id: '1', description: '继续', completionCriteria: '完成' }],
+        });
+        fetchMock.mockResolvedValue(
+            deepSeekResponse([toolCallChoice([{ id: 'call_replan', name: 'request_replan', args: newPlan }])]),
+        );
+
+        const decision = (await provider.decide(userMessage, [readFileTool])).decision;
+
+        expect(decision.type).toBe('Replan');
+        if (decision.type === 'Replan') {
+            expect(decision.deliverables).toBeUndefined();
+        }
+    });
+
     it('批量入口的调用翻译为批量动作决策', async () => {
         const args = JSON.stringify({
             actions: [

@@ -59,7 +59,7 @@ import type { SlashCommand, SlashCommandHost } from './utils/slash-commands.js';
 import type { SessionEventInput } from '@lmliheng/acode-core';
 import type { ObservationPayload, DecisionPayload } from '@lmliheng/acode-core';
 import type { PriorRun } from '@lmliheng/acode-core';
-import type { AgentRunState, ContextSizeMetric, StopReason } from '@lmliheng/acode-core';
+import type { AgentRunState, ContextSizeMetric, StopReason, TaskVerificationResult } from '@lmliheng/acode-core';
 import type { PendingAction, ApprovalDecision } from '@lmliheng/acode-core';
 import type { CliArgs } from '@lmliheng/acode-core'
 
@@ -252,6 +252,47 @@ export function describeStopReason(reason: StopReason | undefined): { text: stri
 }
 
 
+
+/**
+ * 验收结论的展示。
+ *
+ * 分两层说，因为两层回答不同的问题：回归测试 = 「没弄坏原来的东西」，
+ * 交付物 = 「这次要的东西出来了没有」。只给一个通过/不通过，会让人以为
+ * 测试全绿就等于任务完成 —— 老实现正是如此（没有交付物这一层）。
+ *
+ * 不通过时把缺哪条列出来：光说「失败」的话，用户还得回去翻 trace 才知道缺什么。
+ */
+export function describeVerification(
+  verification: TaskVerificationResult | undefined,
+): { text: string; tone: Tone } | null {
+  if (verification === undefined) return null;
+
+  if (verification.verificationStatus === 'unavailable') {
+    return { text: '不可判定（没有测试脚本，本次也没声明交付物）', tone: 'note' };
+  }
+
+  // 老会话重放出来的记录没有 layers / deliverables 字段，取不到就不摆这一层
+  const regression = verification.layers?.regression;
+  const deliverableLayer = verification.layers?.deliverables;
+  const checks = verification.deliverables ?? [];
+
+  const parts: string[] = [];
+  if (regression?.executed) {
+    parts.push(`回归测试${regression.passed ? '通过' : '失败'}`);
+  }
+  if (deliverableLayer !== undefined && deliverableLayer.declared > 0) {
+    const ok = checks.filter((check) => check.ok).length;
+    parts.push(`交付物 ${ok}/${deliverableLayer.declared} 通过`);
+  }
+
+  const missing = checks.filter((check) => !check.ok).map((check) => check.path);
+  if (missing.length > 0) parts.push(`缺：${missing.join('、')}`);
+
+  return {
+    text: `${parts.join(' · ')}（${verification.passed ? '整体通过' : '整体不通过'}）`,
+    tone: verification.passed ? 'ok' : 'bad',
+  };
+}
 
 /**
  * 当前上下文大小的展示。
@@ -608,12 +649,15 @@ async function main(): Promise<void> {
     const { tokenUsage: usage, contextSize } = result.state;
     const stop = describeStopReason(result.state.stopReason);
     const cache = describeCacheUsage(usage);
+    const verification = describeVerification(result.verification);
 
     ensureNewline();
 
     console.log('');
     console.log(panel('本轮结果', [
       ['停止', marked(stop.tone, stop.text)],
+      // 验收紧跟在停止原因之后：这两个结论一起回答「这一轮到底成了没有」
+      ...(verification !== null ? [['验收', paint(verification.tone, verification.text)] as const] : []),
       ['决策', `${result.state.decisions.length} 轮 ${chalk.dim('·')} 工具 ${result.state.toolCallCount} 次`],
       ['消耗', `${formatCount(usage.totalTokens)} tokens ` +
         chalk.dim(`（输入 ${formatCount(usage.promptTokens)} / 输出 ${formatCount(usage.completionTokens)}）`)],

@@ -14,6 +14,7 @@ import type {
     JsonSchemaObject,
 } from '@lmliheng/acode-core'
 import { REQUEST_REPLAN_TOOL, BATCH_TOOL } from '@lmliheng/acode-core'
+import { normalizeDeliverables } from '@lmliheng/acode-core'
 import type { ChatMessage, AssistantMessage } from '@lmliheng/acode-core'
 import type { ModelDecision, Action, BatchAction, PlanStep } from '@lmliheng/acode-core'
 
@@ -68,6 +69,19 @@ const CONTROL_FLOW_TOOLS: ToolDefinition[] = [
                     type: 'array',
                     description: '新的步骤列表，按执行顺序排列',
                     items: PLAN_STEP_SCHEMA,
+                },
+                deliverables: {
+                    type: 'array',
+                    description:
+                        '这次任务最终应当产出的文件（相对工作区路径）。运行时会逐条核对文件是否存在、内容是否匹配；任务要求产出具体文件时不要漏，也不要拿它当步骤清单用。',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            path: { type: 'string', description: '相对工作区根目录的文件路径，如 results/weather.md' },
+                            contains: { type: 'string', description: '可选：文件内容必须包含的文本' },
+                        },
+                        required: ['path'],
+                    },
                 },
             },
             required: ['reason', 'newPlan'],
@@ -486,13 +500,18 @@ export class DeepSeekProvider implements AgentProvider {
         const parsed = this.parseArguments(tc.function.arguments);
         if (!parsed.ok) return null;
 
-        const { reason, newPlan } = parsed.value;
+        const { reason, newPlan, deliverables } = parsed.value;
         if (!Array.isArray(newPlan) || newPlan.length === 0) return null;
+
+        const normalizedDeliverables = normalizeDeliverables(deliverables);
 
         return {
             type: 'Replan',
             reason: typeof reason === 'string' && reason ? reason : '未提供重新规划的原因',
             newPlan: newPlan.map((step, index) => this.toPlanStep(step, index)),
+            // 一条都没收敛出来时干脆不带这个字段：空数组与「没声明」在语义上应当同义，
+            // 多带一个空数组只会让下游多一条无意义的分支。
+            ...(normalizedDeliverables.length > 0 ? { deliverables: normalizedDeliverables } : {}),
             thought: message.content?.trim() || '请求重新规划',
         };
     }

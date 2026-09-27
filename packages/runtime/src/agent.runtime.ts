@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 import type { AgentProvider, ToolDefinition, TokenUsage } from '@lmliheng/acode-core';
@@ -18,14 +18,17 @@ import type {
     FileChange,
     Action,
     ApprovalRecord,
+    DeliverableSpec,
+    DeliverableCheck,
 } from '@lmliheng/acode-core';
 
 import type { AgentRuntimeConfig } from '@lmliheng/acode-core'
 import type { SessionEventInput } from '@lmliheng/acode-core';
-import { applyOutputBudget, resolveContextBudget, NO_OUTPUT_PLACEHOLDER } from '@lmliheng/acode-core';
+import { applyOutputBudget, resolveContextBudget, NO_OUTPUT_PLACEHOLDER, normalizeDeliverables } from '@lmliheng/acode-core';
 import type { ContextBudgetJudgement } from '@lmliheng/acode-core';
 import { splitDeclaredTools, TOOL_CALL, TOOL_SEARCH } from '@lmliheng/acode-tools';
 import { resolveDeferredToolCall } from '@lmliheng/acode-tools';
+import { resolveInWorkspace } from '@lmliheng/acode-tools';
 import { MODIFYING_TOOLS } from '@lmliheng/acode-tools'
 import type {
     Tool,
@@ -93,8 +96,17 @@ function formatPlan(plan: PlanState): string {
         })
         .join('\n');
 
+    // 交付物一并渲染：它是验收时会真的去核对的清单，模型有权知道自己承诺了什么。
+    // 不渲染的话，「没产出」这件事要到运行结束才由验收揭晓，中间没有任何提示。
+    const deliverables = plan.deliverables ?? [];
+    const deliverableLines = deliverables.length === 0
+        ? ''
+        : `\n交付物（验收时逐条核对）:\n${deliverables
+            .map(d => `- ${d.path}${d.contains ? `（内容需包含「${d.contains}」）` : ''}`)
+            .join('\n')}`;
+
     return `当前计划 (v${plan.version}):
-${steps}`;
+${steps}${deliverableLines}`;
 }
 
 /**
@@ -139,6 +151,7 @@ const PLANNING_SYSTEM_PROMPT = `你是 AI 编码助手。这一轮只做规划�
 - 通过 ${REQUEST_REPLAN_TOOL} 提交步骤列表，不要调用其他工具。
 - 每个步骤的 completionCriteria 必须写清「怎么算这一步完成了」。
 - 步骤之间的先后依赖用 dependsOn 标明，取值是其他步骤的 id。
+- 任务要求产出具体文件时，把它们的路径写进 deliverables（相对工作区）；运行时会逐条核对，这是「任务完成」的判据之一。
 - 步骤范围以任务本身为界，不要拆出与任务无关的步骤。`;
 
 /** 一次动作执行内的审批决定缓存，使同一动作只问一次 */
@@ -379,6 +392,7 @@ export class AgentRuntime {
                 steps: [],
                 currentStepIndex: 0,
                 version: 1,
+                deliverables: [],
             },
             decisions: [],
             observations: [],
@@ -481,6 +495,7 @@ export class AgentRuntime {
         // 设进内存的话，重放出来的会话会是个没有计划的会话。
         if (toolDefinitions.length === 0) {
             this.state.plan.steps = cloneFallbackPlan();
+            this.applyDeliverables([]);
             this.emit({ type: 'plan_updated', payload: { plan: this.snapshotPlan() } });
             return;
         }
@@ -494,6 +509,7 @@ export class AgentRuntime {
         ];
 
         let steps: PlanStep[] = [];
+        let declared: unknown;
 
         try {
             const response = await this.provider.decide(messages, toolDefinitions);
@@ -501,6 +517,7 @@ export class AgentRuntime {
 
             if (response.decision.type === 'Replan') {
                 steps = normalizePlanSteps(response.decision.newPlan);
+                declared = response.decision.deliverables;
             }
         } catch (error) {
             console.warn(`[AgentRuntime] 初始计划生成失败，改用兜底计划: ${(error as Error).message}`);
@@ -514,6 +531,7 @@ export class AgentRuntime {
         }
 
         this.state.plan.steps = steps;
+        this.applyDeliverables(declared);
         this.emit({ type: 'plan_updated', payload: { plan: this.snapshotPlan() } });
     }
 
@@ -1401,6 +1419,9 @@ export class AgentRuntime {
         this.replanAttempts = new Map();
         this.failureHistory = [];
 
+        // 5. 交付物声明跟着一起收敛（新增的并入，已有的保留）
+        this.applyDeliverables(decision.deliverables);
+
         this.emit({ type: 'plan_updated', payload: { plan: this.snapshotPlan() } });
 
         console.log(`计划已更新到 v${this.state.plan.version}，原因: ${decision.reason}`);
@@ -1686,7 +1707,27 @@ export class AgentRuntime {
             currentStepIndex: this.state.plan.currentStepIndex,
             version: this.state.plan.version,
             steps: this.state.plan.steps.map(step => ({ ...step, dependsOn: [...step.dependsOn] })),
+            deliverables: (this.state.plan.deliverables ?? []).map(spec => ({ ...spec })),
         };
+    }
+
+    /**
+     * 收敛这次计划带来的交付物声明，与调用方声明的一起写进计划。
+     *
+     * 三个来路合并而不是互相覆盖：
+     *   - 模型在计划里声明的（它从任务描述里读出来的）；
+     *   - config.deliverables（调用方钉死的，CI / eval 场景）；
+     *   - 计划里原有的（重规划时保留，避免一次 Replan 把先前的承诺悄悄抹掉）。
+     *
+     * 因此验收只会变严、不会变松：声明过的东西不会因为后来一次重规划而不再核对。
+     * 同一路径多处声明时取后者（config 优先于模型 —— 人和脚本写的比模型稳）。
+     */
+    private applyDeliverables(declared: unknown): void {
+        const merged = new Map<string, DeliverableSpec>();
+        for (const spec of this.state.plan.deliverables ?? []) merged.set(spec.path, spec);
+        for (const spec of normalizeDeliverables(declared)) merged.set(spec.path, spec);
+        for (const spec of normalizeDeliverables(this.config.deliverables)) merged.set(spec.path, spec);
+        this.state.plan.deliverables = [...merged.values()];
     }
 
 
@@ -1695,31 +1736,32 @@ export class AgentRuntime {
      *
      * 由运行时自行推断并执行验证手段，结论不取自模型自述
      * （见 task-verification spec）。
+     *
+     * 分两层，因为两层回答的是不同问题：
+     *   - regression：仓库自带的测试 / 类型检查还过不过（「没弄坏原来的东西」）；
+     *   - deliverables：这次任务承诺产出的文件在不在、内容对不对（「要的东西出来了没有」）。
+     * 老实现只有第一层，且把它当成任务完成与否的全部判据 —— 于是「写一份 weather.md」
+     * 这类任务只要没弄坏测试就能拿到 passed: true，即便 weather.md 根本不存在。
      */
     private async verifyTask(): Promise<TaskVerificationResult> {
         const workspaceRoot = this.config.workspacePath;
         const diffSummary = this.buildDiffSummary();
         const commands = this.inferVerificationCommands(workspaceRoot);
 
-        if (commands.length === 0) {
-            return {
-                passed: false,
-                verificationStatus: 'unavailable',
-                testResults: { passed: 0, failed: 0, output: '' },
-                typeCheckPassed: null,
-                typeCheckOutput: '',
-                diffSummary,
-                completionCriteriaMet: false,
-                details: '工作区未声明测试脚本，也不存在类型检查配置，验收结论不可判定（不可判定不等于通过）',
-            };
-        }
+        // 交付物断言先跑：它不依赖工作区有没有测试脚本，且离「任务本身」更近
+        const deliverables = this.checkDeliverables();
+        const deliverablesLayer = {
+            declared: deliverables.length,
+            // 一条都没声明时不算阻碍（没有声明就没有承诺可核对）
+            passed: deliverables.every(check => check.ok),
+        };
 
         const timeoutMs = this.config.verificationTimeoutMs ?? 120000;
         let testResults = { passed: 0, failed: 0, output: '' };
         let typeCheckPassed: boolean | null = null;
         let typeCheckOutput = '';
         const details: string[] = [];
-        let allPassed = true;
+        let regressionPassed = true;
 
         for (const command of commands) {
             const outcome = this.runVerificationCommand(command.command, workspaceRoot, timeoutMs);
@@ -1732,21 +1774,97 @@ export class AgentRuntime {
             }
 
             details.push(`${command.kind} [${command.command}] -> ${outcome.ok ? '通过' : '失败'} (exit ${outcome.status})`);
-            if (!outcome.ok) allPassed = false;
+            if (!outcome.ok) regressionPassed = false;
+        }
+
+        const regression = { executed: commands.length > 0, passed: regressionPassed };
+        const passed = regressionPassed && deliverablesLayer.passed;
+
+        // 两层都没跑成才是「不可判定」。老实现只看仓库有没有 test 脚本，
+        // 于是声明了交付物的任务即便逐条核对完了，也被记成不可判定（其实是判得出的）。
+        if (!regression.executed && deliverablesLayer.declared === 0) {
+            return {
+                passed: false,
+                verificationStatus: 'unavailable',
+                testResults,
+                typeCheckPassed,
+                typeCheckOutput,
+                diffSummary,
+                completionCriteriaMet: false,
+                details: '工作区未声明测试脚本，也不存在类型检查配置，验收结论不可判定（不可判定不等于通过）',
+                deliverables,
+                layers: { regression, deliverables: deliverablesLayer },
+            };
+        }
+
+        for (const check of deliverables) {
+            details.push(`deliverable [${check.path}] -> ${check.ok ? '通过' : '失败'}（${check.detail}）`);
         }
 
         const completed = this.state.stopReason?.type === 'task_completed';
 
         return {
-            passed: allPassed,
+            passed,
             verificationStatus: 'executed',
             testResults,
             typeCheckPassed,
             typeCheckOutput,
             diffSummary,
-            completionCriteriaMet: completed && allPassed,
+            completionCriteriaMet: completed && passed,
             details: details.join('\n'),
+            deliverables,
+            layers: { regression, deliverables: deliverablesLayer },
         };
+    }
+
+    /**
+     * 逐条核对交付物断言：文件在不在、内容含不含声明的那段文本。
+     *
+     * 判定刻意做得很小 —— 不解释、不调模型。验收的结论要能复现、要在 CI 里被信任，
+     * 所以这里只做「存在 + 子串包含」两件事，剩下的判断留给读结论的人。
+     *
+     * 边界走 fs-guard 的同一套解析（resolve + realpath + relative），不另写一遍：
+     * 交付物声明同样来自模型，`../../etc/passwd` 这种路径一样可能出现在里面。
+     */
+    private checkDeliverables(): DeliverableCheck[] {
+        const workspaceRoot = this.config.workspacePath;
+
+        return (this.state.plan.deliverables ?? []).map(spec => {
+            const guarded = resolveInWorkspace(workspaceRoot, spec.path, [workspaceRoot]);
+            if (!guarded.allowed) {
+                return { path: spec.path, ok: false, detail: `${spec.path}：${guarded.reason ?? '路径不合法'}` };
+            }
+
+            let stat;
+            try {
+                stat = statSync(guarded.resolved);
+            } catch {
+                return { path: spec.path, ok: false, detail: `${spec.path}：文件不存在` };
+            }
+            if (!stat.isFile()) {
+                return { path: spec.path, ok: false, detail: `${spec.path}：存在但不是文件` };
+            }
+
+            if (spec.contains === undefined) {
+                return { path: spec.path, ok: true, detail: `${spec.path}：存在` };
+            }
+
+            let content: string;
+            try {
+                content = readFileSync(guarded.resolved, 'utf-8');
+            } catch (error) {
+                return { path: spec.path, ok: false, detail: `${spec.path}：无法读取（${(error as Error).message}）` };
+            }
+
+            const matched = content.includes(spec.contains);
+            return {
+                path: spec.path,
+                ok: matched,
+                detail: matched
+                    ? `${spec.path}：存在且包含「${spec.contains}」`
+                    : `${spec.path}：缺少「${spec.contains}」`,
+            };
+        });
     }
 
     /**

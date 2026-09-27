@@ -27,6 +27,8 @@ export interface Replan {
     type: 'Replan';
     reason: string;         // 为什么需要重新规划
     newPlan: PlanStep[];    // 新的步骤列表
+    /** 见 DeliverableSpec；不传表示这次重规划没有新的交付物声明 */
+    deliverables?: DeliverableSpec[];
     thought?: string;
 }
 
@@ -57,11 +59,38 @@ export interface PlanStep {
     completionCriteria: string; // 如何判断此步骤完成，如 "找到包含 login 的路由定义"
 }
 
+/**
+ * 交付物断言：这次任务承诺产出什么。
+ *
+ * 与 PlanStep.completionCriteria 的分工：那条是写给模型看的行为约定（自由文本，
+ * 运行时刻不出真假）；这条是运行时可判定的断言 —— 验收时逐条核对文件是否存在、
+ * 内容是否匹配。没有它，「天气 md 没产出」的任务照样能拿到 passed: true。
+ */
+export interface DeliverableSpec {
+    /** 相对工作区的路径 */
+    path: string;
+    /** 可选：文件内容必须包含这段文本 */
+    contains?: string;
+}
+
+/** 单条交付物断言的核对结果 */
+export interface DeliverableCheck {
+    path: string;
+    ok: boolean;
+    /** 人可读的结论（不存在 / 缺内容 / 通过 / 落在工作区之外） */
+    detail: string;
+}
+
 export interface PlanState {
     originalGoal: string;   // 用户的原始需求
     steps: PlanStep[];      // 所有步骤
     currentStepIndex: number; // 当前正在执行的步骤索引
     version: number;        // 计划版本号，每次 replan 递增
+    /**
+     * 这次任务应当产出的文件。验收时逐条核对（见 task-verification）。
+     * 可选：老会话重放出来的计划没有这个字段。
+     */
+    deliverables?: DeliverableSpec[];
 }
 
 /**
@@ -219,6 +248,28 @@ export interface TaskVerificationResult {
     typeCheckPassed: boolean | null;
     typeCheckOutput: string;
     diffSummary: string;            // 代码变更摘要
-    completionCriteriaMet: boolean; // 运行以「完成」结束且验收通过
+    completionCriteriaMet: boolean; // 运行以「完成」结束，且两层验收都通过
     details: string;                // 详细说明，含实际执行的命令与结论
+    /**
+     * 交付物断言的逐条结果（未声明交付物时为空数组）。
+     * 这是「任务真的产出了它承诺的东西吗」那一层，与回归测试层相互独立。
+     */
+    deliverables: DeliverableCheck[];
+    /**
+     * 验收分层结论。分开摆的理由：回归测试全绿只说明「没弄坏原来的东西」，
+     * 交付物断言才回答「这次要的东西出来了没有」—— 两者混成一个 passed 时，
+     * 前者会盖住后者（老实现就是这个毛病）。
+     */
+    layers: {
+        regression: {
+            /** 工作区里存在可执行的验证手段（测试脚本 / 类型检查） */
+            executed: boolean;
+            passed: boolean;
+        };
+        deliverables: {
+            /** 声明的交付物条数；0 表示这次没有声明，此时不计入验收 */
+            declared: number;
+            passed: boolean;
+        };
+    };
 }

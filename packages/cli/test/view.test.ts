@@ -12,10 +12,13 @@ import {
   describeContextSize,
   describeObservation,
   describeStopReason,
+  describeVerification,
   paint,
   panel,
   viewOfRoundUsage,
 } from '../src/cli.js';
+
+import type { TaskVerificationResult } from '@lmliheng/acode-core';
 
 import { displayWidth, truncateToWidth } from '../src/utils/terminal-width.js';
 
@@ -189,5 +192,107 @@ describe('按显示列截断', () => {
   it('宽度小到放不下省略号时返回空串，而不是超宽', () => {
     expect(truncateToWidth('abc', 0)).toBe('');
     expect(truncateToWidth('abc', 1)).toBe('');
+  });
+});
+
+// 验收结论的人读翻译。两层分开说，缺哪条列出来 —— 只给一个通过/不通过的话，
+// 用户还得回去翻 trace 才知道缺什么。
+describe('验收结论的人读翻译', () => {
+  /** 造一份完整结论，用例只覆盖自己关心的字段 */
+  function result(overrides: Partial<TaskVerificationResult> = {}): TaskVerificationResult {
+    return {
+      passed: true,
+      verificationStatus: 'executed',
+      testResults: { passed: 2, failed: 0, output: '' },
+      typeCheckPassed: null,
+      typeCheckOutput: '',
+      diffSummary: '',
+      completionCriteriaMet: true,
+      details: '',
+      deliverables: [],
+      layers: {
+        regression: { executed: true, passed: true },
+        deliverables: { declared: 0, passed: true },
+      },
+      ...overrides,
+    };
+  }
+
+  it('没有验收结论时不摆这一行', () => {
+    expect(describeVerification(undefined)).toBeNull();
+  });
+
+  it('两层都通过时是正面结论', () => {
+    const described = describeVerification(result({
+      deliverables: [{ path: 'results/weather.md', ok: true, detail: '' }],
+      layers: {
+        regression: { executed: true, passed: true },
+        deliverables: { declared: 1, passed: true },
+      },
+    }));
+
+    expect(described!.tone).toBe('ok');
+    expect(described!.text).toContain('回归测试通过');
+    expect(described!.text).toContain('交付物 1/1 通过');
+  });
+
+  it('交付物没产出时判为不通过，并把缺的那条列出来', () => {
+    const described = describeVerification(result({
+      passed: false,
+      completionCriteriaMet: false,
+      deliverables: [
+        { path: 'results/weather.md', ok: false, detail: '文件不存在' },
+        { path: 'reports/summary.md', ok: true, detail: '' },
+      ],
+      layers: {
+        regression: { executed: true, passed: true },
+        deliverables: { declared: 2, passed: false },
+      },
+    }));
+
+    expect(described!.tone).toBe('bad');
+    // 回归全绿也一样要说不通过 —— 这正是老实现漏掉的那一层
+    expect(described!.text).toContain('交付物 1/2 通过');
+    expect(described!.text).toContain('缺：results/weather.md');
+    expect(described!.text).toContain('整体不通过');
+  });
+
+  it('只有交付物这一层时不谎称跑过回归测试', () => {
+    const described = describeVerification(result({
+      deliverables: [{ path: 'out.md', ok: true, detail: '' }],
+      layers: {
+        regression: { executed: false, passed: true },
+        deliverables: { declared: 1, passed: true },
+      },
+    }));
+
+    expect(described!.text).not.toContain('回归测试');
+    expect(described!.text).toContain('交付物 1/1 通过');
+  });
+
+  it('不可判定单独说，不冒充通过也不冒充失败', () => {
+    const described = describeVerification(result({
+      passed: false,
+      verificationStatus: 'unavailable',
+      layers: {
+        regression: { executed: false, passed: true },
+        deliverables: { declared: 0, passed: true },
+      },
+    }));
+
+    expect(described!.tone).toBe('note');
+    expect(described!.text).toContain('不可判定');
+  });
+
+  it('老会话重放出来的结论缺 layers 字段也能渲染', () => {
+    // 字段是后加的：重放旧事件得到的结果对象没有 layers / deliverables
+    const legacy = result({ passed: false });
+    delete (legacy as { layers?: unknown }).layers;
+    delete (legacy as { deliverables?: unknown }).deliverables;
+
+    const described = describeVerification(legacy);
+
+    expect(described!.tone).toBe('bad');
+    expect(described!.text).toContain('整体不通过');
   });
 });
