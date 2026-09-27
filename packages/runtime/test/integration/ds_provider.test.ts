@@ -10,6 +10,15 @@ import type { ToolDefinition } from '@lmliheng/acode-core';
 import type { ChatMessage } from '@lmliheng/acode-core';
 import type { Action } from '@lmliheng/acode-core';
 
+/**
+ * 没有 key 就整体跳过，而不是让 beforeAll 抛错。
+ *
+ * 这组用例打的是真实 API：CI 里拿不到 secret 时，抛错会把「没配密钥」变成
+ * 「测试挂了」，红色信号指向错误的地方。跳过是可解释的（vitest 会报 skipped），
+ * 本地有 key 时照常全跑 —— 包括下面那条「默认端点」的覆盖。
+ */
+const hasApiKey = (process.env.DEEPSEEK_API_KEY ?? '') !== '';
+
 const readFileTool: ToolDefinition = {
     name: 'read_file',
     description: '读取工作区内的文件内容',
@@ -22,14 +31,12 @@ const readFileTool: ToolDefinition = {
     },
 };
 
-describe('DeepSeek Provider 集成测试', () => {
+describe.skipIf(!hasApiKey)('DeepSeek Provider 集成测试', () => {
     let provider: DeepSeekProvider;
 
     beforeAll(() => {
-        const apiKey = process.env.DEEPSEEK_API_KEY;
-        if (!apiKey) {
-            throw new Error('请设置 DEEPSEEK_API_KEY 环境变量');
-        }
+        // 能进到这个钩子就说明 key 在（没有 key 时整组用例被 skipIf 跳过）
+        const apiKey = process.env.DEEPSEEK_API_KEY!;
 
         // 刻意不传 baseUrl，以同时覆盖默认端点
         provider = new DeepSeekProvider({

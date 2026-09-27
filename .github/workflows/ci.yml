@@ -1,0 +1,41 @@
+# 持续集成：类型检查、构建、测试三件套。
+#
+# 为什么需要它：这套测试到 465 条时仍然只能靠人手跑（`pnpm -r test`），
+# 「本地忘了跑」与「真的坏了」在 PR 里看起来没有区别。
+#
+# 不配置任何 secret：打真实 DeepSeek API 的那组集成测试在没有 key 时
+# 自己跳过（见 packages/runtime/test/integration/ds_provider.test.ts），
+# 其余用例一律不依赖网络。要跑真实 API 的那部分，在本地配 key 即可。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # pnpm 版本取自 package.json 的 packageManager 字段，这里不写死，
+      # 免得 CI 用的版本与本地（corepack 拉的那份）不是同一个
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: 启用 pnpm
+        run: corepack enable
+
+      - name: 安装依赖（严格按 lockfile）
+        run: pnpm install --frozen-lockfile
+
+      - name: 类型检查
+        run: pnpm run typecheck
+
+      - name: 构建
+        run: pnpm run build
+
+      - name: 测试
+        run: pnpm test

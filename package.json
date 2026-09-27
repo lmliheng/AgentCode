@@ -35,7 +35,7 @@
     "llm"
   ],
   "author": "lmliheng",
-  "license": "ISC",
+  "license": "MIT",
   "type": "module",
   "bugs": {
     "url": "https://github.com/lmliheng/AgentCode/issues"
