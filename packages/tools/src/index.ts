@@ -13,6 +13,7 @@ export * from './git_operation.js';
 export * from './glob-match.js';
 export * from './glob.js';
 export * from './list_files.js';
+export * from './mcp/index.js';
 export * from './move_file.js';
 export * from './read_directory.js';
 export * from './read_file.js';

@@ -304,7 +304,7 @@
 
 | 候选工具 | 依据 | 注意 |
 |---|---|---|
-| MCP 客户端接入（动态注册 MCP 工具 + `read_mcp_resource`） | `agent.runtime.ts:1033` 注释原文已写「新增工具（含未来 MCP 接入的工具）」；仓库里已有 `packages/mcp-wxcloud` | 动态注册会改动工具列表与提示前缀，需要与 `splitDeclaredTools` 的「声明集恒定」设计对齐 |
+| ~~MCP 客户端接入~~ **已实现（见第 6 节）**：动态注册 MCP 工具 | `agent.runtime.ts:1033` 注释原文已写「新增工具（含未来 MCP 接入的工具）」；仓库里已有 `packages/mcp-wxcloud` | 动态注册会改动工具列表与提示前缀，需要与 `splitDeclaredTools` 的「声明集恒定」设计对齐 —— 现已对齐：只在启动时连一次、读一次配置，声明集在首轮请求前定死 |
 | 真正的 `apply_patch`（unified diff、多文件） | `apply_diff` 描述原文：「不接受 unified diff / patch 格式的输入」——名字暗示 patch，能力不是 patch | **不要复用 `apply_diff` 这个名字**，会加剧已有的命名误导 |
 | git 扩展（`push`/`pull`/`stash`/`show`） | `git_operation` 描述原文：「只有上述 7 种操作（没有 push/pull/stash/merge）」 | 这是**有意收敛**，扩之前先想清楚：`push` 是不可逆的共享状态操作，建议单独工具 + 强制审批，不要塞进 `git_operation` 的 enum |
 | `copy_file` / `make_dir` | 无 | 低价值：`create_file` 已自动建父目录 |
@@ -355,3 +355,78 @@
 3. **`list_files` 与 `glob` 的分工**：前者列目录（可含目录条目），后者找文件（只有文件）。
    若将来要收敛工具数量，`glob` 是 `list_files(recursive)` 的超集，可考虑合并；
    但两个名字都是模型熟悉的，目前保留。
+
+---
+
+## 6. MCP stdio 客户端（已实现）
+
+### 它是什么
+
+让 acode 连上外部的 MCP（Model Context Protocol）server，把对方的工具**动态注册**
+进本进程的工具表 —— 工具名 `mcp__<server>__<tool>`，模型侧看到的与其他工具没有区别。
+
+零依赖：只用 `node:child_process`，没有引 MCP SDK（本仓库的取向是 core「零依赖地基」、
+tools 只依赖 core，为几十行 JSON-RPC 背一棵依赖树不划算）。
+
+| 文件 | 职责 |
+|---|---|
+| `src/mcp/protocol.ts` | 协议形状与「宽进严出」的解析（`parseRemoteTool` / `parseToolCallResult`） |
+| `src/mcp/client.ts` | JSON-RPC 换行分隔传输：握手、`tools/list` 分页、`tools/call`、超时、退出、`close()` |
+| `src/mcp/tool.ts` | `McpTool implements Tool<ToolParams>`、命名空间化命名、content 渲染 |
+| `src/mcp/config.ts` | `loadMcpConfig` / `mcpConfigFile`（容错解析，永不抛错） |
+| `src/mcp/connect.ts` | `connectMcpServers`：并发连接、失败隔离、汇总 `close` |
+
+### 配置
+
+`<工作区>/.acode/mcp.json`：
+
+```json
+{
+  "mcpServers": {
+    "例子": { "command": "npx", "args": ["-y", "@some/mcp-server"] }
+  }
+}
+```
+
+`command` 必填；`args` / `env` / `cwd` 可选（`env` 是**合并**到进程环境，不是替换 ——
+整份替换会把 PATH 弄丢，`command: "node"` 就找不到了）。未知字段忽略。
+文件不存在 = 没有配置（不是错误）；JSON 坏或字段类型不对 = 返回带字段路径的中文错误。
+
+### 与「声明集恒定」的关系（本次的关键决断）
+
+`splitDeclaredTools` 的设计是「声明集恒定」，即一次会话内下发给模型的工具声明不变，
+否则请求前缀每次都变、缓存全部落空。MCP 会改工具表，因此对齐方式定为：
+
+1. **只在启动时读一次配置、连一次**。会话中途不增删、不重连（`/mcp` 也只列不改）；
+2. **远程工具强制常驻**（见 `cli.ts` 的 `eagerToolNames`）。被延迟的工具模型要先
+   `tool_search` 才知道它存在，而用户连 MCP 就是为了让模型用上它。这不违反上面的设计：
+   这份列表在首轮请求之前就定死了。
+
+副作用：`/cd` 换工作区之后 MCP 工具不变（配置按启动时的工作区读），`/mcp` 里照实说。
+
+### 权限与审批
+
+远端工具的能力对我们是未知的（协议没有任何字段能保证它不写文件），因此
+`permissions` 四个权限位一律 `false`（= 本地不替它担保任何权限），`requiresApproval`
+默认 `true`。唯一例外：远端 `annotations.readOnlyHint === true` 时免掉审批 ——
+那是**远端自称**，只用来少打扰，不用来放开任何权限位。
+
+### 已知边界（本次没做）
+
+- **不读 MCP resource**（没有 `read_mcp_resource` 工具），也**不代理 prompt / sampling /
+  roots**。server 反向发起的请求会收到 `-32601` 错误回复（不回会让它一直等，表现为
+  「工具调用永远不返回」）；
+- **非 text 内容折成占位**（`[image: image/png, 12.3KB]`），不原样交给模型 ——
+  DeepSeek 的对话接口不接受多模态输入，塞进去只会污染上下文；
+- 只在启动时连一次，没有热加载、没有断线重连。
+
+### 验证
+
+```bash
+pnpm --filter @lmliheng/acode-tools exec vitest run test/mcp.test.ts
+```
+
+测试起的是真子进程（`test/fixtures/mcp-stub-server.mjs`，用 `process.execPath` 直接跑），
+覆盖：握手与工具注册、分页取全、调用成功 / `isError` / 未知工具 / 超时、
+一个 server 起不来不影响其他、`close()` 之后子进程确实没了、配置解析的四种坏输入、
+非 text 内容折叠。
