@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { join, resolve } from 'path';
 import type{ Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
+import { resolveInWorkspace } from './fs-guard.js';
 
 interface ApplyDiffParams extends ToolParams {
     path: string;              // 要修改的文件路径
@@ -81,17 +82,17 @@ export class ApplyDiffTool implements Tool<ApplyDiffParams> {
 
     async execute(params: ApplyDiffParams, ctx: ToolContext): Promise<ToolResult> {
         try {
-            const filePath = resolve(join(ctx.workspaceRoot, params.path));
-
-            // 安全检查
-            const allowed = ctx.allowedPaths.some(p => filePath.startsWith(resolve(p)));
-            if (!allowed) {
+            // 安全检查统一走 fs-guard：resolve + realpath + relative 判定，
+            // 字符串前缀比较会放过 `ws-evil` 与符号链接逃逸（见 fs-guard.ts）
+            const guard = resolveInWorkspace(ctx.workspaceRoot, params.path, ctx.allowedPaths);
+            if (!guard.allowed) {
                 return {
                     success: false,
                     data: null,
                     error: `路径 ${params.path} 不在允许的工作区内`,
                 };
             }
+            const filePath = guard.resolved;
 
             // 读取文件
             const content = readFileSync(filePath, 'utf-8');

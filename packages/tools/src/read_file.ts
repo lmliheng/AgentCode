@@ -3,6 +3,7 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Tool, ToolContext, ToolResult, ValidationResult, ToolParams } from '@lmliheng/acode-core';
+import { resolveInWorkspace } from './fs-guard.js';
 
 /**
  * read_file 的参数类型
@@ -73,7 +74,12 @@ export class ReadFileTool implements Tool<ReadFileParams> {
     }
 
     async execute(params: ReadFileParams, ctx: ToolContext): Promise<ToolResult> {
-        const fullPath = resolve(ctx.workspaceRoot, params.path);
+        // read_file 原先完全没有边界检查，`../../package.json` 能直接读回（run_test/PRD.md §4.2）
+        const guard = resolveInWorkspace(ctx.workspaceRoot, params.path, ctx.allowedPaths);
+        if (!guard.allowed) {
+            return { success: false, data: null, error: `路径 ${params.path} 不在允许的工作区内` };
+        }
+        const fullPath = guard.resolved;
         let content: string;
         try {
             content = readFileSync(fullPath, 'utf-8');

@@ -3,6 +3,7 @@
 import { renameSync, existsSync, mkdirSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
+import { resolveInWorkspace } from './fs-guard.js';
 
 interface MoveFileParams extends ToolParams {
     source: string;            // 源路径
@@ -74,21 +75,20 @@ export class MoveFileTool implements Tool<MoveFileParams> {
 
     async execute(params: MoveFileParams, ctx: ToolContext): Promise<ToolResult> {
         try {
-            const sourcePath = resolve(join(ctx.workspaceRoot, params.source));
-            const destPath = resolve(join(ctx.workspaceRoot, params.destination));
+            // 安全检查：源和目标都必须在允许的路径内（统一走 fs-guard）
+            const sourceGuard = resolveInWorkspace(ctx.workspaceRoot, params.source, ctx.allowedPaths);
+            const destGuard = resolveInWorkspace(ctx.workspaceRoot, params.destination, ctx.allowedPaths);
+            const sourcePath = sourceGuard.resolved;
+            const destPath = destGuard.resolved;
 
-            // 安全检查：源和目标都必须在允许的路径内
-            const sourceAllowed = ctx.allowedPaths.some(p => sourcePath.startsWith(resolve(p)));
-            const destAllowed = ctx.allowedPaths.some(p => destPath.startsWith(resolve(p)));
-
-            if (!sourceAllowed) {
+            if (!sourceGuard.allowed) {
                 return {
                     success: false,
                     data: null,
                     error: `源路径 ${params.source} 不在允许的工作区内`,
                 };
             }
-            if (!destAllowed) {
+            if (!destGuard.allowed) {
                 return {
                     success: false,
                     data: null,

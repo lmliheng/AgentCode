@@ -2,6 +2,7 @@
 import { execSync, type ExecSyncOptions, spawn, type ChildProcess } from 'child_process';
 import { join } from 'path';
 import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
+import { resolveInWorkspace } from './fs-guard.js';
 
 interface RunCommandParams extends ToolParams {
     command: string;
@@ -130,11 +131,23 @@ export class RunCommandTool implements Tool<RunCommandParams> {
             };
         }
 
-        return new Promise((resolve) => {
-            const workDir = params.cwd
-                ? join(ctx.workspaceRoot, params.cwd)
-                : ctx.workspaceRoot;
+        // cwd 也必须在工作区内：否则 `cwd: '../../..'` 能把命令带到任意目录执行。
+        // 这一步放在建 Promise 之前 —— 拒绝不该经过超时/杀进程那条路。
+        const workDirGuard = resolveInWorkspace(
+            ctx.workspaceRoot,
+            params.cwd ?? '.',
+            ctx.allowedPaths,
+        );
+        if (!workDirGuard.allowed) {
+            return {
+                success: false,
+                data: null,
+                error: `工作目录 ${params.cwd} 不在允许的工作区内`,
+            };
+        }
+        const workDir = workDirGuard.resolved;
 
+        return new Promise((resolve) => {
             const timeoutMs = params.timeout ?? 60000;
 
             const child = spawn(params.command, [], {

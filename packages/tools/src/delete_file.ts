@@ -3,6 +3,7 @@
 import { unlinkSync, rmdirSync, readdirSync, existsSync, statSync } from 'fs';
 import { join, resolve } from 'path';
 import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
+import { resolveInWorkspace } from './fs-guard.js';
 
 interface DeleteFileParams extends ToolParams {
     path: string;              // 要删除的文件或空目录路径
@@ -73,17 +74,16 @@ export class DeleteFileTool implements Tool<DeleteFileParams> {
 
     async execute(params: DeleteFileParams, ctx: ToolContext): Promise<ToolResult> {
         try {
-            const targetPath = resolve(join(ctx.workspaceRoot, params.path));
-
-            // 安全检查：必须在允许的路径内
-            const allowed = ctx.allowedPaths.some(p => targetPath.startsWith(resolve(p)));
-            if (!allowed) {
+            // 安全检查：必须在允许的路径内（统一走 fs-guard）
+            const guard = resolveInWorkspace(ctx.workspaceRoot, params.path, ctx.allowedPaths);
+            if (!guard.allowed) {
                 return {
                     success: false,
                     data: null,
                     error: `路径 ${params.path} 不在允许的工作区内`,
                 };
             }
+            const targetPath = guard.resolved;
 
             // 检查是否存在
             if (!existsSync(targetPath)) {

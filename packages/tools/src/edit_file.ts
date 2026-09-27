@@ -3,6 +3,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import type { Tool, ToolContext, ToolResult, ValidationResult, ToolParams } from '@lmliheng/acode-core';
+import { resolveInWorkspace } from './fs-guard.js';
 
 export interface EditFileParams extends ToolParams {
     path: string;
@@ -60,7 +61,13 @@ export class EditFileTool implements Tool<EditFileParams> {
     }
 
     async execute(params: EditFileParams, ctx: ToolContext): Promise<ToolResult> {
-        const fullPath = resolve(ctx.workspaceRoot, params.path);
+        // 与 read_file 同一条边界：edit_file 原先也没有检查（只有 read_file 被 PRD 点名，
+        // 但同一个口子在这两处都存在）
+        const guard = resolveInWorkspace(ctx.workspaceRoot, params.path, ctx.allowedPaths);
+        if (!guard.allowed) {
+            return { success: false, data: null, error: `路径 ${params.path} 不在允许的工作区内` };
+        }
+        const fullPath = guard.resolved;
         
         // 1. 读取文件
         let content: string;

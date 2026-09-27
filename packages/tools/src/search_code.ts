@@ -3,6 +3,7 @@
 import { readFileSync, readdirSync, statSync } from 'fs';
 import { join, relative, extname } from 'path';
 import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
+import { resolveInWorkspace } from './fs-guard.js';
 
 interface SearchCodeParams extends ToolParams {
     pattern: string;
@@ -106,20 +107,18 @@ export class SearchCodeTool implements Tool<SearchCodeParams> {
 
     async execute(params: SearchCodeParams, ctx: ToolContext): Promise<ToolResult> {
         try {
-            const searchPath = params.path
-                ? join(ctx.workspaceRoot, params.path)
-                : ctx.workspaceRoot;
-
-            // 安全检查
-            const resolved = join(searchPath);
-            const allowed = ctx.allowedPaths.some(p => resolved.startsWith(p));
-            if (!allowed) {
+            // 安全检查统一走 fs-guard。这里原先用裸 `startsWith` 比较，而 allowedPaths
+            // 可能是相对路径（默认 '.'），于是「带 path 的搜索必然被误判为越权」——
+            // 模型只好退化成全仓模糊搜索（见 run_test/PRD.md §4.1）。
+            const guard = resolveInWorkspace(ctx.workspaceRoot, params.path ?? '.', ctx.allowedPaths);
+            if (!guard.allowed) {
                 return {
                     success: false,
                     data: null,
                     error: `路径 ${params.path || '.'} 不在允许的工作区内`,
                 };
             }
+            const searchPath = guard.resolved;
 
             const regex = new RegExp(params.pattern, params.caseSensitive ? 'g' : 'gi');
             const results: MatchResult[] = [];

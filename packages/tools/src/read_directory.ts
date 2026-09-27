@@ -8,6 +8,7 @@
 import { readdirSync, statSync } from 'fs';
 import { join, relative, resolve } from 'path';
 import type{ Tool, ToolParams, ToolContext, ToolResult, ValidationResult } from '@lmliheng/acode-core';
+import { resolveInWorkspace } from './fs-guard.js';
 
 interface ReadDirectoryParams extends ToolParams {
     path?: string;             // 目录路径，默认工作区根目录
@@ -103,19 +104,16 @@ export class ReadDirectoryTool implements Tool<ReadDirectoryParams> {
 
     async execute(params: ReadDirectoryParams, ctx: ToolContext): Promise<ToolResult> {
         try {
-            const startPath = params.path
-                ? resolve(join(ctx.workspaceRoot, params.path))
-                : resolve(ctx.workspaceRoot);
-
-            // 安全检查
-            const allowed = ctx.allowedPaths.some(p => startPath.startsWith(resolve(p)));
-            if (!allowed) {
+            // 安全检查统一走 fs-guard（`params.path` 缺省时即工作区根）
+            const guard = resolveInWorkspace(ctx.workspaceRoot, params.path ?? '.', ctx.allowedPaths);
+            if (!guard.allowed) {
                 return {
                     success: false,
                     data: null,
                     error: `路径 ${params.path || '.'} 不在允许的工作区内`,
                 };
             }
+            const startPath = guard.resolved;
 
             const state: DirectoryWalkState = {
                 count: 0,
