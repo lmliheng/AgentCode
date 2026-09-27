@@ -194,6 +194,7 @@ export interface Observation {
 export type StopReason =
     | { type: 'max_iterations'; limit: number } // 最大迭代
     | { type: 'max_tool_calls'; limit: number } // 工具调用次数
+    | { type: 'max_tokens'; limit: number } // 累计 token 用量上限（成本闸门）
     | { type: 'max_file_changes'; limit: number } // 文件变更数量
     | { type: 'timeout'; durationMs: number } // 响应超时
     | { type: 'no_progress'; tool: string; repeats: number } // 同一工具反复产出相同结果（微调参数但结果不变）

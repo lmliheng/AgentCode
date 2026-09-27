@@ -75,6 +75,14 @@ describe('会话 CLI 的参数解析', () => {
     expect(() => parseArgs(['--model'])).toThrow(/--model/);
   });
 
+  it('--max-tokens 是可选的正整数上限（成本闸门）', () => {
+    expect(parseArgs([]).maxTokens).toBeUndefined();
+    expect(parseArgs(['--max-tokens=200000']).maxTokens).toBe(200000);
+    expect(parseArgs(['--max-tokens', '50000']).maxTokens).toBe(50000);
+    expect(() => parseArgs(['--max-tokens', '0'])).toThrow(/正整数/);
+    expect(() => parseArgs(['--max-tokens', 'abc'])).toThrow(/正整数/);
+  });
+
   it('循环上限必须是正整数', () => {
     expect(() => parseArgs(['--max-iterations', '0'])).toThrow(/正整数/);
     expect(() => parseArgs(['--max-iterations', 'abc'])).toThrow(/正整数/);

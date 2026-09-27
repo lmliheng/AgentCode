@@ -3,7 +3,7 @@
 import type { CliArgs } from '@lmliheng/acode-core'
 
 /** 需要接值的开关：写成 --name value 与 --name=value 两种都认 */
-const VALUE_FLAGS = new Set(['--task', '--model', '--max-iterations']);
+const VALUE_FLAGS = new Set(['--task', '--model', '--max-iterations', '--max-tokens']);
 
 
 export function parseArgs(argv: readonly string[]): CliArgs {
@@ -41,6 +41,12 @@ export function parseArgs(argv: readonly string[]): CliArgs {
     throw new Error('--max-iterations 必须是正整数');
   }
 
+  const maxTokensRaw = values.get('--max-tokens');
+  const maxTokens = maxTokensRaw === undefined ? undefined : Number(maxTokensRaw);
+  if (maxTokens !== undefined && (!Number.isInteger(maxTokens) || maxTokens < 1)) {
+    throw new Error('--max-tokens 必须是正整数');
+  }
+
   return {
     workspacePath: positional[0] ?? process.cwd(),
     // --resume 不带值也成立，所以它在 values 里存在即为指定了会话 ID
@@ -50,6 +56,7 @@ export function parseArgs(argv: readonly string[]): CliArgs {
     task: values.get('--task'),
     model: values.get('--model') ?? 'deepseek-chat',
     maxIterations,
+    maxTokens,
     help: switches.has('--help') || switches.has('-h'),
     dev: switches.has('--dev'),
   };

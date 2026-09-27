@@ -15,6 +15,7 @@
 //   --task "任务"       只跑一条任务然后退出（不进入交互）
 //   --model 名称        模型名，默认 deepseek-chat
 //   --max-iterations N  单条任务的循环上限，默认 50
+//   --max-tokens N      累计 token 上限（成本闸门），达到即停；默认不限制
 //   --help              打印用法
 //
 // 默认进入交互：每输入一行就是**一次新的 run**，但历史对话在同一个会话里累积 ——
@@ -74,6 +75,7 @@ const USAGE = `用法: acode [工作区路径] [选项]
   --task "任务"       只跑一条任务然后退出（不进入交互）
   --model 名称        模型名，默认 deepseek-chat
   --max-iterations N  单条任务的循环上限，默认 50
+  --max-tokens N      累计 token 上限（成本闸门），达到即停；默认不限制
   --dev               逐轮打印送入模型的输入量与缓存命中量
   --help              打印本用法
 
@@ -234,6 +236,8 @@ export function describeStopReason(reason: StopReason | undefined): { text: stri
       return { text: `达到迭代上限（${reason.limit} 轮）`, tone: 'warn' };
     case 'max_tool_calls':
       return { text: `达到工具调用上限（${reason.limit} 次）`, tone: 'warn' };
+    case 'max_tokens':
+      return { text: `达到 token 上限（${formatCount(reason.limit)}）`, tone: 'warn' };
     case 'max_file_changes':
       return { text: `文件变更达到上限（${reason.limit} 处）`, tone: 'warn' };
     case 'timeout':
@@ -527,6 +531,8 @@ async function main(): Promise<void> {
     const runtime = new AgentRuntime(provider, tools, {
       workspacePath: host.state.workspace,
       maxIterations: args.maxIterations,
+      // 只有显式给了上限才传：undefined 与 0 都表示「不限制」
+      ...(args.maxTokens !== undefined ? { maxTokens: args.maxTokens } : {}),
       eagerTools: config.tools.eager,
       priorRuns: history,
       onStreamDelta: (delta) => {

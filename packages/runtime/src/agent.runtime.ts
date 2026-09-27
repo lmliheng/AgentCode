@@ -566,6 +566,19 @@ export class AgentRuntime {
             return true;
         }
 
+        // 3.1 检查累计 token 用量（成本闸门）
+        //
+        // 之前只有迭代/工具调用/文件变更三种预算，没有一处看 token —— 长任务只能
+        // 靠「跑完才发现烧了多少」。上限由调用方给（CLI: --max-tokens）。
+        const tokenLimit = this.config.maxTokens;
+        if (tokenLimit !== undefined && tokenLimit > 0 && this.state.tokenUsage.totalTokens >= tokenLimit) {
+            this.state.stopReason = {
+                type: 'max_tokens',
+                limit: tokenLimit,
+            };
+            return true;
+        }
+
         // 4. 检查超时
         const elapsed = Date.now() - this.state.startTime;
         if (elapsed >= this.config.timeoutMs) {

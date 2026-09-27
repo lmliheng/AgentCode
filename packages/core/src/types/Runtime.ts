@@ -27,6 +27,11 @@ export interface AgentRuntimeConfig {
     maxToolCalls: number;         // 最大工具调用次数
     timeoutMs: number;            // 超时时间（毫秒）
     maxFileChanges: number;       // 最大文件修改数量
+    /**
+     * 累计 token 用量上限（成本闸门）。省略或 0 表示不限制。
+     * 达到上限即停止，停止原因为 `max_tokens`。
+     */
+    maxTokens?: number;
     workspacePath: string;        // 代码工作区路径
     maxConcurrency?: number;      // 最大并行数，默认 3
 
