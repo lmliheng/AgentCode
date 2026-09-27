@@ -22,9 +22,9 @@ import type { AgentRuntimeConfig } from '@lmliheng/acode-core'
 import type { SessionEventInput } from '@lmliheng/acode-core';
 import { applyOutputBudget, resolveContextBudget, NO_OUTPUT_PLACEHOLDER } from '@lmliheng/acode-core';
 import type { ContextBudgetJudgement } from '@lmliheng/acode-core';
-import { splitDeclaredTools, TOOL_CALL, TOOL_SEARCH } from '../tools/deferred.js';
-import { resolveDeferredToolCall } from '../tools/tool_call.js';
-import { MODIFYING_TOOLS } from '../tools/ToolRegistry.js'
+import { splitDeclaredTools, TOOL_CALL, TOOL_SEARCH } from '@lmliheng/acode-tools';
+import { resolveDeferredToolCall } from '@lmliheng/acode-tools';
+import { MODIFYING_TOOLS } from '@lmliheng/acode-tools'
 import type {
     Tool,
     ToolParams,

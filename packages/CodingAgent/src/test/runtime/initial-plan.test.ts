@@ -7,7 +7,7 @@
 //   - 拿不到计划时回落到兜底计划，不把整个任务拦在规划阶段
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
-import { ReadFileTool } from '../../tools/read_file.js';
+import { ReadFileTool } from '@lmliheng/acode-tools';
 import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
 import type {
     AgentProvider,

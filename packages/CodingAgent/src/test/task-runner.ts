@@ -25,7 +25,7 @@
 
 import { DeepSeekProvider } from '@lmliheng/acode-providers';
 import { AgentRuntime } from '../runtime/agent.runtime.js';
-import { ToolRegistry } from '../tools/ToolRegistry.js';
+import { ToolRegistry } from '@lmliheng/acode-tools';
 import { config } from '../config/default.js';
 import { SessionStore } from '@lmliheng/acode-core';
 import { formatSessionList, resolveResumeTarget } from '@lmliheng/acode-core';

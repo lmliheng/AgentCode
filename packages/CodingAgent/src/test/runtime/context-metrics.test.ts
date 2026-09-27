@@ -7,7 +7,7 @@
 //   - 度量本身不改变运行行为
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
-import { ReadFileTool } from '../../tools/read_file.js';
+import { ReadFileTool } from '@lmliheng/acode-tools';
 import { DERIVED_CONTEXT_TOKEN_BUDGET, DEFAULT_OUTPUT_BUDGET } from '@lmliheng/acode-core';
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
 import type { AgentProvider, AgentProviderConfig, ModelResponse, TokenUsage } from '@lmliheng/acode-core';

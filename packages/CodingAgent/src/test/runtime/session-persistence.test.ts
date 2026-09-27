@@ -12,7 +12,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
-import { ReadFileTool } from '../../tools/read_file.js';
+import { ReadFileTool } from '@lmliheng/acode-tools';
 import { SessionStore } from '@lmliheng/acode-core';
 import { resolveResumeTarget } from '@lmliheng/acode-core';
 

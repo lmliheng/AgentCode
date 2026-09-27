@@ -3,8 +3,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'fs';
 import { join } from 'path';
-import { ApplyDiffTool } from '../../tools/apply_diff.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { ApplyDiffTool } from '../src/apply_diff.js';
+import { createTestWorkspace, cleanupTestWorkspace } from './setup.js';
 import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('ApplyDiffTool', () => {

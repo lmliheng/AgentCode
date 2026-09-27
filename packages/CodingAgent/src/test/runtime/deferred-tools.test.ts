@@ -8,12 +8,12 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
-import { ToolRegistry } from '../../tools/ToolRegistry.js';
-import { ToolSearchTool } from '../../tools/tool_search.js';
-import { ToolCallTool, resolveDeferredToolCall } from '../../tools/tool_call.js';
-import { splitDeclaredTools, TOOL_CALL, TOOL_SEARCH } from '../../tools/deferred.js';
-import { ReadFileTool } from '../../tools/read_file.js';
-import { MoveFileTool } from '../../tools/move_file.js';
+import { ToolRegistry } from '@lmliheng/acode-tools';
+import { ToolSearchTool } from '@lmliheng/acode-tools';
+import { ToolCallTool, resolveDeferredToolCall } from '@lmliheng/acode-tools';
+import { splitDeclaredTools, TOOL_CALL, TOOL_SEARCH } from '@lmliheng/acode-tools';
+import { ReadFileTool } from '@lmliheng/acode-tools';
+import { MoveFileTool } from '@lmliheng/acode-tools';
 import { config } from '../../config/default.js';
 
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';

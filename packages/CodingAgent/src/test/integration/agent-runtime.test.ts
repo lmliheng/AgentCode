@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
-import { ReadFileTool } from '../../tools/read_file.js';
-import { EditFileTool } from '../../tools/edit_file.js';
-import { SearchCodeTool } from '../../tools/search_code.js';
+import { ReadFileTool } from '@lmliheng/acode-tools';
+import { EditFileTool } from '@lmliheng/acode-tools';
+import { SearchCodeTool } from '@lmliheng/acode-tools';
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanResponse } from '../setup.js';
 import type { AgentProvider, ModelResponse, AgentProviderConfig } from '@lmliheng/acode-core';
 import type { ChatMessage } from '@lmliheng/acode-core';

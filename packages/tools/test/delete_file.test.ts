@@ -3,8 +3,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { DeleteFileTool } from '../../tools/delete_file.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { DeleteFileTool } from '../src/delete_file.js';
+import { createTestWorkspace, cleanupTestWorkspace } from './setup.js';
 import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('DeleteFileTool', () => {

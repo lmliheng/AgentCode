@@ -1,8 +1,8 @@
 // src/test/tools/read_directory.test.ts
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ReadDirectoryTool } from '../../tools/read_directory.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { ReadDirectoryTool } from '../src/read_directory.js';
+import { createTestWorkspace, cleanupTestWorkspace } from './setup.js';
 import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('ReadDirectoryTool', () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ReadFileTool } from '../../tools/read_file.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { ReadFileTool } from '../src/read_file.js';
+import { createTestWorkspace, cleanupTestWorkspace } from './setup.js';
 import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('ReadFileTool', () => {

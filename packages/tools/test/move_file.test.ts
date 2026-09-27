@@ -3,8 +3,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { MoveFileTool } from '../../tools/move_file.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { MoveFileTool } from '../src/move_file.js';
+import { createTestWorkspace, cleanupTestWorkspace } from './setup.js';
 import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('MoveFileTool', () => {

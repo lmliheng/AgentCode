@@ -1,7 +1,7 @@
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { SearchCodeTool } from '../../tools/search_code.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { SearchCodeTool } from '../src/search_code.js';
+import { createTestWorkspace, cleanupTestWorkspace } from './setup.js';
 import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('SearchCodeTool', () => {

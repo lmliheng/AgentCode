@@ -7,7 +7,7 @@
 // 请只对一次性副本运行，不要直接指向你正在编辑的工作树。
 import { DeepSeekProvider } from '@lmliheng/acode-providers';
 import { AgentRuntime } from '../runtime/agent.runtime.js';
-import { ToolRegistry } from '../tools/ToolRegistry.js'
+import { ToolRegistry } from '@lmliheng/acode-tools'
 import { config } from '../config/default.js'
 
 import path from 'node:path';

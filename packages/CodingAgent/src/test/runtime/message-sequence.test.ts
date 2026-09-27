@@ -6,8 +6,8 @@
 //   - 模型用量记录为可观测量
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AgentRuntime, sanitizeMessageSequence } from '../../runtime/agent.runtime.js';
-import { ReadFileTool } from '../../tools/read_file.js';
-import { CreateFileTool } from '../../tools/create_file.js';
+import { ReadFileTool } from '@lmliheng/acode-tools';
+import { CreateFileTool } from '@lmliheng/acode-tools';
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
 import type {
     AgentProvider,

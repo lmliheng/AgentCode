@@ -6,7 +6,7 @@
 //   - 审批请求必须送达交互层
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AgentRuntime } from '../../runtime/agent.runtime.js';
-import { ReadFileTool } from '../../tools/read_file.js';
+import { ReadFileTool } from '@lmliheng/acode-tools';
 import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
 import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult, PendingAction } from '@lmliheng/acode-core';
 import type { AgentProvider, AgentProviderConfig, ModelResponse } from '@lmliheng/acode-core';

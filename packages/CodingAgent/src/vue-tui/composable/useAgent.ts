@@ -3,18 +3,18 @@ import { AgentRuntime } from '../../runtime/agent.runtime.js';
 import { DeepSeekProvider } from '@lmliheng/acode-providers'
 import type { Tool } from '@lmliheng/acode-core'
 import type { PendingAction, ApprovalDecision } from '@lmliheng/acode-core';
-import { ReadFileTool } from '../../tools/read_file.js';
-import { ApplyDiffTool } from '../../tools/apply_diff.js';
-import { CreateFileTool } from '../../tools/create_file.js';
-import { DeleteFileTool } from '../../tools/delete_file.js';
-import { EditFileTool } from '../../tools/edit_file.js';
-import { FetchUrlTool } from '../../tools/fetch_url.js';
-import { GitOperationTool } from '../../tools/git_operation.js';
-import { ListFilesTool } from '../../tools/list_files.js';
-import { MoveFileTool } from '../../tools/move_file.js';
-import { ReadDirectoryTool } from '../../tools/read_directory.js';
-import { RunCommandTool } from '../../tools/run_command.js';
-import { SearchCodeTool } from '../../tools/search_code.js';
+import { ReadFileTool } from '@lmliheng/acode-tools';
+import { ApplyDiffTool } from '@lmliheng/acode-tools';
+import { CreateFileTool } from '@lmliheng/acode-tools';
+import { DeleteFileTool } from '@lmliheng/acode-tools';
+import { EditFileTool } from '@lmliheng/acode-tools';
+import { FetchUrlTool } from '@lmliheng/acode-tools';
+import { GitOperationTool } from '@lmliheng/acode-tools';
+import { ListFilesTool } from '@lmliheng/acode-tools';
+import { MoveFileTool } from '@lmliheng/acode-tools';
+import { ReadDirectoryTool } from '@lmliheng/acode-tools';
+import { RunCommandTool } from '@lmliheng/acode-tools';
+import { SearchCodeTool } from '@lmliheng/acode-tools';
 
 
 export function loadTools(): Tool[] {

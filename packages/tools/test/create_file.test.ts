@@ -2,8 +2,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
-import { CreateFileTool } from '../../tools/create_file.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { CreateFileTool } from '../src/create_file.js';
+import { createTestWorkspace, cleanupTestWorkspace } from './setup.js';
 import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('CreateFileTool', () => {

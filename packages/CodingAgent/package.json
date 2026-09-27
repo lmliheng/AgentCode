@@ -51,6 +51,7 @@
   "dependencies": {
     "@lmliheng/acode-core": "workspace:*",
     "@lmliheng/acode-providers": "workspace:*",
+    "@lmliheng/acode-tools": "workspace:*",
     "@anthropic-ai/sdk": "^0.128.0",
     "@google/generative-ai": "^0.24.1",
     "chalk": "^6.0.0",

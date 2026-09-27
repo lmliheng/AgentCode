@@ -3,8 +3,8 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { EditFileTool } from '../../tools/edit_file.js';
-import { createTestWorkspace, cleanupTestWorkspace } from '../setup.js';
+import { EditFileTool } from '../src/edit_file.js';
+import { createTestWorkspace, cleanupTestWorkspace } from './setup.js';
 import type { ToolContext } from '@lmliheng/acode-core';
 
 describe('EditFileTool', () => {
