@@ -6,9 +6,9 @@
 // 它会发起真实模型调用，并且可能真的改动工作区里的文件。
 // 请只对一次性副本运行，不要直接指向你正在编辑的工作树。
 import { DeepSeekProvider } from '@lmliheng/acode-providers';
-import { AgentRuntime } from '../runtime/agent.runtime.js';
+import { AgentRuntime } from '@lmliheng/acode-runtime';
 import { ToolRegistry } from '@lmliheng/acode-tools'
-import { config } from '../config/default.js'
+import { config } from '@lmliheng/acode-core'
 
 import path from 'node:path';
 import { writeFile } from 'node:fs/promises';

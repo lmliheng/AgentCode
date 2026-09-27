@@ -18,8 +18,8 @@ import {
     DEFAULT_OUTPUT_BUDGET,
 } from '@lmliheng/acode-core';
 import type { OutputBudget } from '@lmliheng/acode-core';
-import { AgentRuntime } from '../../runtime/agent.runtime.js';
-import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
+import { AgentRuntime } from '../src/agent.runtime.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from './setup.js';
 import type { Tool, ToolParams, ToolResult, ValidationResult } from '@lmliheng/acode-core';
 import type { AgentRuntimeConfig } from '@lmliheng/acode-core';
 import type { AgentProvider, AgentProviderConfig, ModelResponse } from '@lmliheng/acode-core';

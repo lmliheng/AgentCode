@@ -41,10 +41,10 @@ import { fileURLToPath } from 'node:url';
 import chalk from 'chalk';
 
 import { DeepSeekProvider } from '@lmliheng/acode-providers';
-import { AgentRuntime } from './runtime/agent.runtime.js';
+import { AgentRuntime } from '@lmliheng/acode-runtime';
 import { ToolRegistry } from '@lmliheng/acode-tools';
-import { config } from './config/default.js';
-import { loadUserEnvFile } from './config/user-env.js';
+import { config } from '@lmliheng/acode-core';
+import { loadUserEnvFile } from '@lmliheng/acode-core';
 
 import { SessionStore, listSessions } from '@lmliheng/acode-core';
 import { userEnvFile, normalizeWorkspaceRoot } from '@lmliheng/acode-core';

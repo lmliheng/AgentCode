@@ -11,12 +11,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { AgentRuntime } from '../../runtime/agent.runtime.js';
+import { AgentRuntime } from '../src/agent.runtime.js';
 import { ReadFileTool } from '@lmliheng/acode-tools';
 import { SessionStore } from '@lmliheng/acode-core';
 import { resolveResumeTarget } from '@lmliheng/acode-core';
 
-import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from './setup.js';
 import type { SessionEventInput } from '@lmliheng/acode-core';
 import type {
   AgentProvider,

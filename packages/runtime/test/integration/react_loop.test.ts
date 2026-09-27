@@ -4,7 +4,7 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { execSync } from 'child_process';
 import { writeFileSync, readFileSync, existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
-import { AgentRuntime } from '../../runtime/agent.runtime.js';
+import { AgentRuntime } from '../../src/agent.runtime.js';
 import { ReadFileTool } from '@lmliheng/acode-tools';
 import { EditFileTool } from '@lmliheng/acode-tools';
 import { SearchCodeTool } from '@lmliheng/acode-tools';

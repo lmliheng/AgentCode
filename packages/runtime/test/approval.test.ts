@@ -5,9 +5,9 @@
 //   - 审批请求携带可判读的操作预览
 //   - 审批请求必须送达交互层
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { AgentRuntime } from '../../runtime/agent.runtime.js';
+import { AgentRuntime } from '../src/agent.runtime.js';
 import { ReadFileTool } from '@lmliheng/acode-tools';
-import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from './setup.js';
 import type { Tool, ToolParams, ToolContext, ToolResult, ValidationResult, PendingAction } from '@lmliheng/acode-core';
 import type { AgentProvider, AgentProviderConfig, ModelResponse } from '@lmliheng/acode-core';
 import type { ChatMessage } from '@lmliheng/acode-core';

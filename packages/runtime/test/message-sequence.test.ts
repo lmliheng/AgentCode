@@ -5,10 +5,10 @@
 //   - 决策记录可重建为可提交的消息序列
 //   - 模型用量记录为可观测量
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { AgentRuntime, sanitizeMessageSequence } from '../../runtime/agent.runtime.js';
+import { AgentRuntime, sanitizeMessageSequence } from '../src/agent.runtime.js';
 import { ReadFileTool } from '@lmliheng/acode-tools';
 import { CreateFileTool } from '@lmliheng/acode-tools';
-import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from './setup.js';
 import type {
     AgentProvider,
     AgentProviderConfig,

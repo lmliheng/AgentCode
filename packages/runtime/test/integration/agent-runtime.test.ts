@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { AgentRuntime } from '../../runtime/agent.runtime.js';
+import { AgentRuntime } from '../../src/agent.runtime.js';
 import { ReadFileTool } from '@lmliheng/acode-tools';
 import { EditFileTool } from '@lmliheng/acode-tools';
 import { SearchCodeTool } from '@lmliheng/acode-tools';

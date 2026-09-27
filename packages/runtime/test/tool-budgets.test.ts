@@ -7,14 +7,14 @@
 import { describe, it, expect, afterEach, vi } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { AgentRuntime } from '../../runtime/agent.runtime.js';
+import { AgentRuntime } from '../src/agent.runtime.js';
 import { FetchUrlTool } from '@lmliheng/acode-tools';
 import { RunCommandTool } from '@lmliheng/acode-tools';
 import { ReadFileTool } from '@lmliheng/acode-tools';
 import { SearchCodeTool } from '@lmliheng/acode-tools';
 import { ListFilesTool } from '@lmliheng/acode-tools';
 import { ReadDirectoryTool } from '@lmliheng/acode-tools';
-import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from './setup.js';
 import type { Tool, ToolParams } from '@lmliheng/acode-core';
 import type { AgentRuntimeConfig } from '@lmliheng/acode-core';
 import type { AgentProvider, AgentProviderConfig, ModelResponse } from '@lmliheng/acode-core';

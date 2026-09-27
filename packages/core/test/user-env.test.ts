@@ -10,7 +10,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 
-import { loadUserEnvFile } from '../../config/user-env.js';
+import { loadUserEnvFile } from '../src/config/user-env.js';
 import {
     ENV_FILE_ENV,
     agentcodeHome,

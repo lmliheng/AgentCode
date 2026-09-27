@@ -6,11 +6,11 @@
 //   - 验收产出结构化结论
 //   - 验收结论与停止原因相互独立
 import { describe, it, expect, afterEach } from 'vitest';
-import { AgentRuntime } from '../../runtime/agent.runtime.js';
+import { AgentRuntime } from '../src/agent.runtime.js';
 import { ReadFileTool } from '@lmliheng/acode-tools';
 import { CreateFileTool } from '@lmliheng/acode-tools';
 import { RunCommandTool } from '@lmliheng/acode-tools';
-import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from './setup.js';
 import type { AgentProvider, AgentProviderConfig, ModelResponse } from '@lmliheng/acode-core';
 import type { ChatMessage } from '@lmliheng/acode-core';
 import type { ModelDecision } from '@lmliheng/acode-core';

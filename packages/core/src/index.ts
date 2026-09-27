@@ -11,3 +11,5 @@ export * from './persistence/paths.js';
 export * from './persistence/replay.js';
 export * from './persistence/resume.js';
 export * from './persistence/session-store.js';
+export * from './config/default.js';
+export * from './config/user-env.js';

@@ -7,16 +7,16 @@
 //     （这两件事必须分开：解包用真实工具名，消息里必须是模型原样发出的名字）
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
-import { AgentRuntime } from '../../runtime/agent.runtime.js';
+import { AgentRuntime } from '../src/agent.runtime.js';
 import { ToolRegistry } from '@lmliheng/acode-tools';
 import { ToolSearchTool } from '@lmliheng/acode-tools';
 import { ToolCallTool, resolveDeferredToolCall } from '@lmliheng/acode-tools';
 import { splitDeclaredTools, TOOL_CALL, TOOL_SEARCH } from '@lmliheng/acode-tools';
 import { ReadFileTool } from '@lmliheng/acode-tools';
 import { MoveFileTool } from '@lmliheng/acode-tools';
-import { config } from '../../config/default.js';
+import { config } from '@lmliheng/acode-core';
 
-import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from '../setup.js';
+import { createTestWorkspace, cleanupTestWorkspace, initialPlanDecision } from './setup.js';
 import type {
     AgentProvider,
     AgentProviderConfig,

@@ -1,5 +1,5 @@
 import { ref, reactive } from 'vue';
-import { AgentRuntime } from '../../runtime/agent.runtime.js';
+import { AgentRuntime } from '@lmliheng/acode-runtime';
 import { DeepSeekProvider } from '@lmliheng/acode-providers'
 import type { Tool } from '@lmliheng/acode-core'
 import type { PendingAction, ApprovalDecision } from '@lmliheng/acode-core';
