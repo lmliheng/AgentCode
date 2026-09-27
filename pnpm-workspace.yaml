@@ -1,8 +1,10 @@
 packages:
-  - "packages/*"
+  - "packages/**"
   - "apps/*"
 
 allowBuilds:
   protobufjs: true
-  # esbuild: true
-  # sharp: true
+  esbuild: true
+  sharp: false
+  "@zvec/zvec": true
+  tesseract.js: true
