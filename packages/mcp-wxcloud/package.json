@@ -1,5 +1,6 @@
 {
   "name": "wxcloudmcp",
+  "private": true,
   "version": "1.0.0",
   "description": "微信云托管MCP，基于 wxcloud CLI 完成，stdio 形式",
   "main": "index.ts",

@@ -4,6 +4,9 @@
   "description": "Agent应用学习仓库",
   "main": "index.js",
   "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
     "chat:llm": "tsx --env-file=.env examples/llm/chat.ts chat",
     "balance:llm": "tsx --env-file=.env examples/llm/chat.ts balance",
     "jev:llm": "tsx --env-file=.env examples/llm/jev.ts jev",

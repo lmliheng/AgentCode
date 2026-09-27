@@ -19,6 +19,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
+    "build": "vite build --config vite.cli.config.ts",
     "verify": "pnpm run typecheck && pnpm test",
     "test:bat": "tsx --env-file=.env test/task-runner.ts",
     "test:cli": "vitest run test/cli.test.ts",

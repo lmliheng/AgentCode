@@ -1,5 +1,6 @@
 {
   "name": "myrag",
+  "private": true,
   "version": "1.0.0",
   "description": "生产级RAG应用",
   "main": "./src/index.ts",

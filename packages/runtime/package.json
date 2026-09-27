@@ -2,7 +2,6 @@
   "name": "@lmliheng/acode-runtime",
   "version": "1.0.0",
   "description": "AgentCode 的 ReAct 运行时",
-  "private": true,
   "type": "module",
   "engines": {
     "node": ">=24"
@@ -12,9 +11,25 @@
   "exports": {
     ".": "./src/index.ts"
   },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public",
+    "main": "./dist/index.js",
+    "types": "./dist/index.d.ts",
+    "exports": {
+      ".": {
+        "types": "./dist/index.d.ts",
+        "import": "./dist/index.js"
+      }
+    }
+  },
   "scripts": {
     "typecheck": "tsc --noEmit -p tsconfig.json",
-    "test": "vitest run --passWithNoTests"
+    "test": "vitest run --passWithNoTests",
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "@lmliheng/acode-core": "workspace:*",

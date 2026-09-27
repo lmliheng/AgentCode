@@ -1,0 +1,10 @@
+{
+  // 发布用配置：把 src/ 编译成 dist/（含 .d.ts），仓库内开发仍直接用 src（见 package.json 的 exports）。
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist"
+  },
+  "include": ["src/**/*"]
+}
