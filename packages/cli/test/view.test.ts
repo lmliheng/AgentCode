@@ -15,9 +15,9 @@ import {
   paint,
   panel,
   viewOfRoundUsage,
-} from '../../cli.js';
+} from '../src/cli.js';
 
-import { displayWidth, truncateToWidth } from '../../utils/terminal-width.js';
+import { displayWidth, truncateToWidth } from '../src/utils/terminal-width.js';
 
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
 const plain = (text: string): string => text.replace(ANSI_PATTERN, '');

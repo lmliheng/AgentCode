@@ -15,11 +15,11 @@ import {
   renderCommandHelp,
   renderSuggestionList,
   selectedCommand,
-} from '../../utils/slash-commands.js';
+} from '../src/utils/slash-commands.js';
 
-import { displayWidth } from '../../utils/terminal-width.js';
+import { displayWidth } from '../src/utils/terminal-width.js';
 
-import type { SaveResult, SlashCommandHost, WorkspaceSwitchResult } from '../../utils/slash-commands.js';
+import type { SaveResult, SlashCommandHost, WorkspaceSwitchResult } from '../src/utils/slash-commands.js';
 
 const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
 const plain = (text: string): string => text.replace(ANSI_PATTERN, '');

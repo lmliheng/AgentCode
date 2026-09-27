@@ -243,7 +243,9 @@ importers:
         specifier: 'catalog:'
         version: 4.23.15
 
-  packages/CodingAgent:
+  packages/ReAct/AgentRuntime: {}
+
+  packages/cli:
     dependencies:
       '@anthropic-ai/sdk':
         specifier: ^0.128.0
@@ -297,8 +299,6 @@ importers:
       vue:
         specifier: 'catalog:'
         version: 3.5.43(typescript@7.0.2)
-
-  packages/ReAct/AgentRuntime: {}
 
   packages/core:
     devDependencies:

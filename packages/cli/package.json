@@ -20,8 +20,8 @@
     "test:watch": "vitest",
     "typecheck": "tsc --noEmit",
     "verify": "pnpm run typecheck && pnpm test",
-    "test:bat": "tsx --env-file=.env src/test/task-runner.ts",
-    "test:cli": "vitest run src/test/cli/cli.test.ts",
+    "test:bat": "tsx --env-file=.env test/task-runner.ts",
+    "test:cli": "vitest run test/cli.test.ts",
     "cli": "tsx --env-file=.env src/cli.ts",
     "cli:list": "tsx --env-file=.env src/cli.ts --list",
     "cli:dev": "tsx --env-file=.env src/cli.ts --dev",
@@ -49,12 +49,12 @@
     "vue": "catalog:"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@google/generative-ai": "^0.24.1",
     "@lmliheng/acode-core": "workspace:*",
     "@lmliheng/acode-providers": "workspace:*",
     "@lmliheng/acode-runtime": "workspace:*",
     "@lmliheng/acode-tools": "workspace:*",
-    "@anthropic-ai/sdk": "^0.128.0",
-    "@google/generative-ai": "^0.24.1",
     "chalk": "^6.0.0",
     "openai": "^7.23.0"
   }

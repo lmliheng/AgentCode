@@ -7,8 +7,8 @@
 
 import { describe, it, expect } from 'vitest';
 
-import { renderInputLine } from '../../utils/input-line.js';
-import { displayWidth } from '../../utils/terminal-width.js';
+import { renderInputLine } from '../src/utils/input-line.js';
+import { displayWidth } from '../src/utils/terminal-width.js';
 
 describe('输入行的排版', () => {
   it('没有输入时光标紧跟在提示符后面', () => {

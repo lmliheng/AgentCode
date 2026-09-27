@@ -1,33 +1,11 @@
 {
-  // Visit https://aka.ms/tsconfig to read more about this file
+  // 各包自己的 tsconfig.json 都 extends tsconfig.base.json；
+  // 这个根配置只用于「整仓库一次性类型检查」的场景，不参与构建。
+  "extends": "./tsconfig.base.json",
   "compilerOptions": {
-    // File Layout
     "rootDir": ".",
     "outDir": "./dist",
-    "module": "nodenext",
-    "target": "esnext",
-    "types": [
-      "node"
-    ],
-    "sourceMap": false,
-    "declaration": true,
-    "declarationMap": false,
-    // Stricter Typechecking Options
-    "noUncheckedIndexedAccess": true,
-    "exactOptionalPropertyTypes": true,
-    
-    "strict": true,
-    "jsx": "react-jsx",
-    "verbatimModuleSyntax": true,
-    "isolatedModules": true,
-    "noUncheckedSideEffectImports": true,
-    "moduleDetection": "force",
-    "skipLibCheck": true,
+    "noEmit": true
   },
-  // 排除编译
-  "exclude": [
-    "node_modules",
-    "dist",
-    "src/CodingAgent"
-  ]
+  "exclude": ["node_modules", "dist", "**/dist", "examples"]
 }

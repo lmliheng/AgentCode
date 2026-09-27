@@ -10,8 +10,7 @@
     "discover": "node host.js --discover",
     "demo": "node --env-file=.env host.js",
     "verify": "node verify-client",
-    "inspector": "npx @modelcontextprotocol/inspector node after-sales-mcp-server.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "inspector": "pnpm dlx @modelcontextprotocol/inspector node after-sales-mcp-server.js"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.0",
