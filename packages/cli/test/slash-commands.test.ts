@@ -52,6 +52,7 @@ function recorder(options: {
       didExit = true;
     },
     sessions: () => '（会话列表）',
+    sessionAdmin: (arg) => `（会话子命令：${arg}）`,
     usage: () => '（用法）',
     state: { model: 'deepseek-chat', workspace: 'C:\\ws' },
     switchWorkspace: options.switchWorkspace ?? ((path) => ({ ok: true, path })),
@@ -110,6 +111,16 @@ describe('命令表本身', () => {
     await parseCommand(SLASH_COMMANDS, '/session')!.command.run('', host);
 
     expect(printed.join('\n')).toContain('（会话列表）');
+  });
+
+  it('/session 带参数时交给 sessionAdmin，而不是当成空参数', async () => {
+    const { host, printed } = recorder();
+    await parseCommand(SLASH_COMMANDS, '/session rm 20260922-100000-aaaaaa')!.command.run(
+      'rm 20260922-100000-aaaaaa',
+      host,
+    );
+
+    expect(printed.join('\n')).toContain('（会话子命令：rm 20260922-100000-aaaaaa）');
   });
 
   it('/quit 只发出退出信号，自己不打印东西', async () => {

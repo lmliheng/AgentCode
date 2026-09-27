@@ -64,6 +64,12 @@ export interface SlashCommandHost {
    */
   mcpStatus: () => string;
 
+  /**
+   * `/session` 的参数分支：`rm <id>` 删除、`export <id> [文件]` 导出。
+   * 与 sessions 同一分工 —— 这里只把要打印的文本拿回来。
+   */
+  sessionAdmin: (arg: string) => string;
+
   /** 读一个不回显的值（API Key 之类） */
   askSecret: (prompt: string) => Promise<string>;
 }
@@ -174,9 +180,17 @@ export const SLASH_COMMANDS: readonly SlashCommand[] = [
   },
   {
     name: 'session',
-    description: '列出本工作区的会话',
-    takesArg: false,
-    run: (_arg, host) => host.print(host.sessions()),
+    description: '列出本工作区的会话；rm <ID> 删除、export <ID> [文件] 导出 trace',
+    takesArg: true,
+    run: (arg, host) => {
+      // 不带参数就是原来的「列出会话」，带参数才是子命令（takesArg 只影响补全形状，
+      // 菜单的开关不看它，所以两种用法都得能用）
+      if (arg.trim() === '') {
+        host.print(host.sessions());
+        return;
+      }
+      host.print(host.sessionAdmin(arg));
+    },
   },
 ];
 

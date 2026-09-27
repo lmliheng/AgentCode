@@ -37,7 +37,7 @@ import {
   statSync,
   writeFileSync,
 } from 'node:fs';
-import { dirname } from 'node:path';
+import { dirname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import chalk from 'chalk';
@@ -53,6 +53,7 @@ import { loadUserEnvFile } from '@lmliheng/acode-core';
 import { SessionStore, listSessions } from '@lmliheng/acode-core';
 import { userEnvFile, normalizeWorkspaceRoot } from '@lmliheng/acode-core';
 import { formatSessionList, resolveResumeTarget } from '@lmliheng/acode-core';
+import { deleteSession, renderSessionMarkdown } from '@lmliheng/acode-core';
 
 import { SLASH_COMMANDS, parseCommand, renderCommandHelp } from './utils/slash-commands.js';
 import { displayWidth } from './utils/terminal-width.js';
@@ -436,6 +437,78 @@ export function describeObservation(tool: string, display: string | undefined): 
 
 
 /**
+ * `/session` 的子命令：`rm <id>` 删除、`export <id> [文件]` 导出 trace。
+ *
+ * 返回文本而不是直接打印：这样它可以被单测覆盖（`main()` 里的东西测不到），
+ * 也与命令表的分工一致 —— 命令只负责把文本交给 host。
+ *
+ * 两条与「不可逆」有关的规矩：
+ *   - **不删当前会话**：正在写的那个会话被删掉之后，接下来每一条事件都会静默失败，
+ *     而用户看到的只是「这一轮怎么没记下来」；
+ *   - 删除只影响会话（一段对话），不动工作区里的任何文件 —— 这两件事名字像，
+ *     后果完全不同，回话里必须说清。
+ */
+export function runSessionCommand(input: {
+  workspacePath: string;
+  /** 当前会话 id：删它会被拒绝 */
+  currentSessionId: string;
+  arg: string;
+}): { text: string } {
+  const { workspacePath, currentSessionId, arg } = input;
+  const [verb, ...rest] = arg.trim().split(/\s+/);
+  const target = rest[0] ?? '';
+
+  if (verb === 'rm' || verb === 'delete') {
+    if (target === '') {
+      return { text: `用法：/session rm <会话ID>（用 /session 看有哪些）` };
+    }
+    if (target === currentSessionId) {
+      return {
+        text: `✗ ${target} 是当前会话，不能删。\n` +
+          `  换一个工作区或先 /quit，再用 --list 找到它删掉：会话是正在写的那个文件。`,
+      };
+    }
+
+    const result = deleteSession(workspacePath, target);
+    if (!result.deleted) {
+      return { text: `✗ 没删成：${result.reason}。工作区里的文件一个都没动。` };
+    }
+    return { text: `✓ 已删除会话 ${target}（只删了这段对话的记录，工作区里的文件没动）` };
+  }
+
+  if (verb === 'export') {
+    if (target === '') {
+      return { text: `用法：/session export <会话ID> [文件名]（不给文件名就打印出来）` };
+    }
+
+    const store = new SessionStore(workspacePath, target);
+    const events = store.readEvents();
+    if (events.length === 0) {
+      return { text: `✗ 读不到会话 ${target} 的任何事件（ID 是否写对？用 /session 看清单）` };
+    }
+
+    const markdown = renderSessionMarkdown(events);
+    const file = rest[1];
+    if (file === undefined) return { text: markdown };
+
+    // 相对路径按当前工作区算：与用户敲命令时的心智一致（工具也都按工作区解析）
+    const outPath = isAbsolute(file) ? file : join(workspacePath, file);
+    try {
+      writeFileSync(outPath, markdown, 'utf8');
+    } catch (error) {
+      return { text: `✗ 写入失败：${(error as Error).message}` };
+    }
+    return { text: `✓ 已导出 ${events.length} 条事件到 ${outPath}` };
+  }
+
+  return {
+    text: `用法：/session [rm <会话ID> | export <会话ID> [文件名]]\n` +
+      `  /session             列出当前工作区的会话\n` +
+      `  /session export <ID> 导出一份人读的 trace（Markdown）`,
+  };
+}
+
+/**
  * `/mcp` 的正文：已连接的 server 与它们的工具、没连上的原因、配置文件在哪。
  *
  * 三种状态都说清楚位置和形状，因为敲 /mcp 的人通常就是想配一个服务：
@@ -661,6 +734,11 @@ async function main(): Promise<void> {
       shuttingDown = true;
     },
     sessions: () => formatSessionList(listSessions(sessionWorkspace)),
+    sessionAdmin: (arg) => runSessionCommand({
+      workspacePath: sessionWorkspace,
+      currentSessionId: session.sessionId,
+      arg,
+    }).text,
     usage: () => USAGE,
 
     state: {
