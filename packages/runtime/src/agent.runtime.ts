@@ -152,6 +152,7 @@ const PLANNING_SYSTEM_PROMPT = `你是 AI 编码助手。这一轮只做规划�
 - 每个步骤的 completionCriteria 必须写清「怎么算这一步完成了」。
 - 步骤之间的先后依赖用 dependsOn 标明，取值是其他步骤的 id。
 - 任务要求产出具体文件时，把它们的路径写进 deliverables（相对工作区）；运行时会逐条核对，这是「任务完成」的判据之一。
+- deliverables 只写任务明确要求产出的文件：纯问答 / 解释类任务留空，不要为了留痕而造文件。
 - 步骤范围以任务本身为界，不要拆出与任务无关的步骤。`;
 
 /** 一次动作执行内的审批决定缓存，使同一动作只问一次 */
@@ -1424,7 +1425,10 @@ export class AgentRuntime {
 
         this.emit({ type: 'plan_updated', payload: { plan: this.snapshotPlan() } });
 
-        console.log(`计划已更新到 v${this.state.plan.version}，原因: ${decision.reason}`);
+        // 走 stderr：这是诊断输出，不是调用方的产物。headless（--output-format json）
+        // 下 stdout 只有一行 JSON，多一行日志就整体不可解析了 —— 运行时没有理由
+        // 往 stdout 写东西。终端里两者都看得见，差别只在重定向时。
+        console.error(`计划已更新到 v${this.state.plan.version}，原因: ${decision.reason}`);
 
         return true;
     }

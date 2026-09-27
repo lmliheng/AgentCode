@@ -83,6 +83,20 @@ describe('会话 CLI 的参数解析', () => {
     expect(() => parseArgs(['--max-tokens', 'abc'])).toThrow(/正整数/);
   });
 
+  it('--output-format 默认 text，只认三种取值', () => {
+    expect(parseArgs(['--task', 'x']).outputFormat).toBe('text');
+    expect(parseArgs(['--task', 'x', '--output-format', 'json']).outputFormat).toBe('json');
+    expect(parseArgs(['--task', 'x', '--output-format=stream-json']).outputFormat).toBe('stream-json');
+    expect(() => parseArgs(['--task', 'x', '--output-format', 'yaml'])).toThrow(/output-format/);
+  });
+
+  it('--output-format 只在一次性模式下成立，不静默忽略', () => {
+    // 交互模式没有「一次运行的结果」可序列化；静默忽略会让人以为拿到了结构化产物
+    expect(() => parseArgs(['--output-format', 'json'])).toThrow(/--task/);
+    // text 是默认值，与 --task 无关，不该被这条规则拦下
+    expect(parseArgs(['--output-format', 'text']).outputFormat).toBe('text');
+  });
+
   it('循环上限必须是正整数', () => {
     expect(() => parseArgs(['--max-iterations', '0'])).toThrow(/正整数/);
     expect(() => parseArgs(['--max-iterations', 'abc'])).toThrow(/正整数/);

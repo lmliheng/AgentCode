@@ -16,6 +16,7 @@
 //   --model 名称        模型名，默认 deepseek-chat
 //   --max-iterations N  单条任务的循环上限，默认 50
 //   --max-tokens N      累计 token 上限（成本闸门），达到即停；默认不限制
+//   --output-format F   输出形态（text / json / stream-json），只与 --task 一起用
 //   --help              打印用法
 //
 // 默认进入交互：每输入一行就是**一次新的 run**，但历史对话在同一个会话里累积 ——
@@ -76,8 +77,17 @@ const USAGE = `用法: acode [工作区路径] [选项]
   --model 名称        模型名，默认 deepseek-chat
   --max-iterations N  单条任务的循环上限，默认 50
   --max-tokens N      累计 token 上限（成本闸门），达到即停；默认不限制
+  --output-format F   输出形态，只与 --task 一起用：
+                        text         人读（默认）
+                        json         结束时一行 JSON 结果，不打印其他内容
+                        stream-json  会话事件逐行 NDJSON，最后一行是结果
+  --yes               不询问，自动批准需要审批的动作（无人值守脚本用）
   --dev               逐轮打印送入模型的输入量与缓存命中量
   --help              打印本用法
+
+退出码（仅 --task 模式）：任务完成且验收没有判不通过时为 0，否则为 1；用法错误为 1。
+结构化输出下无人可问审批，需要审批的动作默认按拒绝处理（记录在结果的 approvals 里）；
+确实要让它改文件时显式加 --yes。
 
 ${renderCommandHelp(SLASH_COMMANDS)}`;
 
@@ -291,6 +301,56 @@ export function describeVerification(
   return {
     text: `${parts.join(' · ')}（${verification.passed ? '整体通过' : '整体不通过'}）`,
     tone: verification.passed ? 'ok' : 'bad',
+  };
+}
+
+/**
+ * 这次运行算不算成功 —— 进程退出码的唯一依据。
+ *
+ * 只判两件事：停止原因是不是「完成」，以及验收有没有给出反例。
+ * 「验收不可判定」（工作区既没有测试、任务也没声明交付物）不算失败：它是**没法判**，
+ * 不是**判为失败**。这和 `passed` 的口径不同（不可判定不等于通过），刻意分开 ——
+ * 退出码要用于 CI 分流，把「没跑上验证手段」当成失败会让这个开关对非代码任务失效。
+ */
+export function isRunSuccessful(
+  state: AgentRunState,
+  verification: TaskVerificationResult | undefined,
+): boolean {
+  if (state.stopReason?.type !== 'task_completed') return false;
+  if (verification?.verificationStatus !== 'executed') return true;
+  return verification.passed;
+}
+
+/**
+ * 一次性运行的机器可读结果（`--output-format json` 的那一行）。
+ *
+ * 字段与 state 同构，只加三样 state 里没有的：`ok`（这次成没成）、`task`（跑的是什么）
+ * 与 `answer`（模型的收尾发言）。同构是有意的 —— CI 里比对的就是 trace 里那套口径，
+ * 换个名字就得维护一张对照表。
+ */
+export function buildHeadlessResult(input: {
+  task: string;
+  sessionId: string;
+  state: AgentRunState;
+  verification: TaskVerificationResult | undefined;
+  answer: string | undefined;
+  persistence: { degraded: boolean; error: string | null };
+}): Record<string, unknown> {
+  const { task, sessionId, state, verification, answer, persistence } = input;
+
+  return {
+    task,
+    sessionId,
+    ok: isRunSuccessful(state, verification),
+    stopReason: state.stopReason ?? null,
+    decisions: state.decisions.length,
+    toolCalls: state.toolCallCount,
+    tokenUsage: state.tokenUsage,
+    contextSize: state.contextSize,
+    approvals: state.approvals,
+    verification: verification ?? null,
+    answer: answer ?? null,
+    persistence,
   };
 }
 
@@ -532,17 +592,23 @@ async function main(): Promise<void> {
 
 
 
-  console.log(panel('会话', [
-    ['工作区', host.state.workspace],
-    ['会话', `${session.sessionId}  ${chalk.dim(sessionNote)}`],
-    ['模型', `${host.state.model}  ${chalk.dim(`· 迭代上限 ${args.maxIterations} 轮`)}`],
-  ]));
-  console.log(chalk.dim('输入 /help 看命令，/quit 退出；行首敲 / 会列出候选'));
-  if (args.dev) console.log(chalk.dim('dev 参数:'), args);
-  console.log('');
+  // 结构化输出（--output-format json / stream-json）下 stdout 只承载机器可读的内容：
+  // 混进一块人读的面板，调用方就得先学会怎么把它剔掉。
+  const quiet = args.outputFormat !== 'text';
+
+  if (!quiet) {
+    console.log(panel('会话', [
+      ['工作区', host.state.workspace],
+      ['会话', `${session.sessionId}  ${chalk.dim(sessionNote)}`],
+      ['模型', `${host.state.model}  ${chalk.dim(`· 迭代上限 ${args.maxIterations} 轮`)}`],
+    ]));
+    console.log(chalk.dim('输入 /help 看命令，/quit 退出；行首敲 / 会列出候选'));
+    if (args.dev) console.log(chalk.dim('dev 参数:'), args);
+    console.log('');
+  }
 
   /** 每轮一个全新的 runtime：state 不跨轮复用，历史靠 history 传递 */
-  async function runOne(task: string): Promise<void> {
+  async function runOne(task: string): Promise<{ state: AgentRunState; verification: TaskVerificationResult | undefined; answer: string | undefined }> {
     // 模型与 key 每轮现取：/model 与 /auth 只改会话配置，改完的下一轮就该用上新值
     const provider = new DeepSeekProvider({
       apiKey: requireApiKey(),
@@ -580,6 +646,7 @@ async function main(): Promise<void> {
         // 思考链 本轮不渲染：deepseek-chat 不返回它，等切到 thinking 模型再给它一块区域
         const text = delta.content;
         if (!text) return;
+        if (quiet) return; // 结构化输出下正文只出现在结果 JSON 的 answer 里
         process.stdout.write(text);
         atLineStart = text.endsWith('\n');
         roundStreamedText = true;
@@ -588,6 +655,13 @@ async function main(): Promise<void> {
       // 事件逐条落盘；顺带把工具调用打给用户看，否则一轮跑几分钟是静默的
       onSessionEvent: (event: SessionEventInput) => {
         session.append(event);
+
+        // stream-json：事件原样逐行吐给调用方（这就是「事件流」这一形态的全部内容）
+        if (args.outputFormat === 'stream-json') {
+          console.log(JSON.stringify({ type: event.type, payload: event.payload }));
+          return;
+        }
+        if (quiet) return;
 
         if (event.type === 'observation') {
           // 新一轮开始：上一轮流出来的正文到此为止
@@ -617,32 +691,61 @@ async function main(): Promise<void> {
           }
         }
       },
-      // 需要审批的工具必须由人拍板：没有交互层时运行时只会自动放行
-      requestApproval: async (action: PendingAction): Promise<ApprovalDecision> => {
-        const files = action.preview.affectedFiles
-          .map((file) => `    ${file.changeType} ${file.path}`)
-          .join('\n');
-        ensureNewline();
-        console.log('');
-        console.log(`需要确认：[${action.preview.riskLevel}] ${action.preview.summary}`);
-        if (files !== '') console.log(files);
+      // 审批：--yes 一律放行（无人值守的前提就是「别问了」）；结构化输出下索性不注入
+      // 回调 —— 运行时据默认策略（auto-reject）拒绝需要审批的动作并留下审计记录。
+      // CI 里卡在 y/N 上比被拒更糟，而被拒至少是能看见、能解释的。
+      ...(args.yes ? { approvalPolicy: 'auto-approve' as const } : {}),
+      ...(quiet || args.yes ? {} : {
+        requestApproval: async (action: PendingAction): Promise<ApprovalDecision> => {
+          const files = action.preview.affectedFiles
+            .map((file) => `    ${file.changeType} ${file.path}`)
+            .join('\n');
+          ensureNewline();
+          console.log('');
+          console.log(`需要确认：[${action.preview.riskLevel}] ${action.preview.summary}`);
+          if (files !== '') console.log(files);
 
-        const answer = await askUser('允许执行吗？(y/N) ');
-        return answer.trim().toLowerCase().startsWith('y') ? 'approve' : 'reject';
-      },
+          const answer = await askUser('允许执行吗？(y/N) ');
+          return answer.trim().toLowerCase().startsWith('y') ? 'approve' : 'reject';
+        },
+      }),
     });
 
     const result = await runtime.run(task);
 
     const last = result.state.decisions[result.state.decisions.length - 1];
-    if (last?.type === 'Final') {
+    const answer = last?.type === 'Final' ? last.answer : undefined;
+
+    const persistence = runtime.getPersistenceStatus();
+
+    if (quiet) {
+      // 结构化输出：一行结果，不掺别的东西。stream-json 也用这一行收尾，
+      // 用 `type: 'run_result'` 与前面的事件行区分开。
+      const outcome = buildHeadlessResult({
+        task,
+        sessionId: session.sessionId,
+        state: result.state,
+        verification: result.verification,
+        answer,
+        persistence,
+      });
+      console.log(JSON.stringify(
+        args.outputFormat === 'stream-json' ? { type: 'run_result', ...outcome } : outcome,
+      ));
+
+      // 这一轮照样成为下一轮的历史（--task 下没有下一轮，但这是同一套路径）
+      history.push(priorRunOf(result.state, task));
+      return { state: result.state, verification: result.verification, answer };
+    }
+
+    if (answer !== undefined) {
       // 已经流出来的正文不再打第二遍。只有这一轮什么都没流出来时才补打 ——
       // 例如流式被关掉，或模型这一轮确实没产出正文（此时 answer 是兜底文案）。
       if (roundStreamedText) {
         ensureNewline();
       } else {
         console.log('');
-        console.log(last.answer);
+        console.log(answer);
       }
     }
 
@@ -683,19 +786,23 @@ async function main(): Promise<void> {
       }
     }
 
-    const persistence = runtime.getPersistenceStatus();
     if (persistence.degraded) {
       console.log(chalk.red(`  ✗ 持久化降级：${persistence.error}`));
     }
 
     // 这一轮成为下一轮的历史
     history.push(priorRunOf(result.state, task));
+
+    return { state: result.state, verification: result.verification, answer };
   }
 
   try {
     // 一次性模式：跑完就走，适合脚本里调
     if (args.task !== undefined) {
-      await runOne(args.task);
+      const outcome = await runOne(args.task);
+      // 退出码是 headless 形态的一半：CI 拿不到结构化产物时，至少能用它分流。
+      // 只在一次性模式设 —— 交互式会话里某一轮失败不该决定整个进程的结局。
+      process.exitCode = isRunSuccessful(outcome.state, outcome.verification) ? 0 : 1;
       return;
     }
 
@@ -741,12 +848,16 @@ async function main(): Promise<void> {
     }
   } finally {
     pipeTerminal?.close();
-    console.log('');
-    console.log(`${chalk.dim('会话')} ${chalk.cyan(session.sessionId)}`);
-    console.log(
-      chalk.dim('接着聊：') +
-      chalk.cyan(`acode --resume=${session.sessionId}`),
-    );
+    // 结构化输出的 stdout 只能有 JSON：把「接着聊」这类人读内容挡在外面，
+    // 否则调用方拿到的每一行都得先判一次是不是 JSON（--task 下这个 finally 照跑）。
+    if (!quiet) {
+      console.log('');
+      console.log(`${chalk.dim('会话')} ${chalk.cyan(session.sessionId)}`);
+      console.log(
+        chalk.dim('接着聊：') +
+        chalk.cyan(`acode --resume=${session.sessionId}`),
+      );
+    }
   }
 }
 
