@@ -1,0 +1,62 @@
+{
+  "name": "@lmliheng/acode",
+  "version": "1.0.6",
+  "description": "coding Agent 对标 cloude code 的Agent应用",
+  "bin": {
+    "acode": "./dist/cli.js"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20.12"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "build": "vite build --config vite.cli.config.ts",
+    "verify": "pnpm run typecheck && pnpm test",
+    "test:bat": "tsx --env-file=.env test/task-runner.ts",
+    "test:cli": "vitest run test/cli.test.ts",
+    "cli": "tsx --env-file=.env src/cli.ts",
+    "cli:list": "tsx --env-file=.env src/cli.ts --list",
+    "cli:dev": "tsx --env-file=.env src/cli.ts --dev",
+    "cli:tui": "node --env-file=.env src/cli/dist/main.mjs",
+    "cli:build": "vite build --config vite.cli.config.ts",
+    "p": "vite build --config vite.cli.config.ts && pnpm version patch && pnpm publish --access public --registry=https://registry.npmjs.org/"
+  },
+  "keywords": [
+    "agent",
+    "cli",
+    "ReAct"
+  ],
+  "author": "lmliheng",
+  "license": "MIT",
+  "type": "module",
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "@vitejs/plugin-vue": "catalog:",
+    "@vue-tui/runtime": "^0.3.0",
+    "@vue-tui/vite": "^0.3.1",
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vite": "catalog:",
+    "vitest": "catalog:",
+    "vue": "catalog:"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.128.0",
+    "@google/generative-ai": "^0.24.1",
+    "@lmliheng/acode-core": "workspace:*",
+    "@lmliheng/acode-providers": "workspace:*",
+    "@lmliheng/acode-runtime": "workspace:*",
+    "@lmliheng/acode-tools": "workspace:*",
+    "chalk": "^6.0.0",
+    "openai": "^7.23.0"
+  }
+}

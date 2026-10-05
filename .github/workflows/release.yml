@@ -1,0 +1,80 @@
+# 发布：把 packages/ 下的 5 个可发布包推上 npm 与 GitHub Packages。
+#
+# 为什么不写成本地 `pnpm publish` 就完事：这台开发机上对 registry.npmjs.org 的
+# **写**请求到不了 npm（PUT 回来是 200/409，但 registry 上查不到，包也没真正出现；
+# 同一台机器读 registry 是正常的）。GitHub Actions 的运行器有正常的出网，
+# 所以发布放在这里跑，本地只负责构建与验证。
+#
+# 用法：Actions → Release → Run workflow。可选：
+#   - dry_run：只构建与打包，不发布（先看清单对不对）
+#   - targets：发到哪儿（两个都发默认）
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 只打包不发布
+        type: boolean
+        default: false
+      targets:
+        description: 发布目标
+        type: choice
+        options: [both, npm, github]
+        default: both
+
+# GitHub Packages 用运行器自带的 GITHUB_TOKEN 即可（packages: write），
+# 不需要额外配置 secret；npm 那一路需要仓库 secret `NPM_TOKEN`。
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 与 ci.yml 同一口径：四个库包声明的是 engines >=24
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: 启用 pnpm
+        run: corepack enable
+
+      - name: 安装依赖（严格按 lockfile）
+        run: pnpm install --frozen-lockfile
+
+      # 发布前先过一遍守门人：发上去的版本必须是能通过测试的那一份
+      - name: 类型检查
+        run: pnpm run typecheck
+
+      - name: 测试
+        run: pnpm test
+
+      - name: 构建（dist 就是发布内容）
+        run: pnpm run build
+
+      - name: 发布到 GitHub Packages
+        if: ${{ inputs.targets != 'npm' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # setup-node 只为它配置的那个 registry 写 .npmrc，这里补上 GitHub 的
+          printf '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}\n' >> "$HOME/.npmrc"
+          bash scripts/publish-packages.sh --registry=https://npm.pkg.github.com ${{ inputs.dry_run && '--dry-run' || '' }}
+
+      - name: 发布到 npm
+        if: ${{ inputs.targets != 'github' }}
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          # 缺 secret 时早失败，而不是等到某个包发了一半才发现（那时 npm 上已经
+          # 留下几个发不出去的半成品）
+          if [ -z "$NODE_AUTH_TOKEN" ]; then
+            echo "::error::缺少仓库 secret NPM_TOKEN（npm 的 automation/granular token，需要 publish 权限）"
+            exit 1
+          fi
+          printf '//registry.npmjs.org/:_authToken=${NODE_AUTH_TOKEN}\n' >> "$HOME/.npmrc"
+          bash scripts/publish-packages.sh --registry=https://registry.npmjs.org ${{ inputs.dry_run && '--dry-run' || '' }}

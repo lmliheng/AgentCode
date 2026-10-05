@@ -1,0 +1,291 @@
+{
+  "_说明": "MyRAG 检索评测集。每条 query 声明 expectSources（metadata.source，即相对入库根目录的路径；命中其一即算命中），可选 expectScope 收窄到某个标题路径。命中定义见 src/eval/index.ts。",
+  "_依据": "expectSources 依据 spike/heading-inventory.ts 输出的话题地图确定，不是凭空写的。同主题出现在多个文件时（如枚举、文件模块、类型保护）会把多个来源都列出，否则会把正确结果误判成失败。",
+  "_来源路径约定": "Milvus/data 下的 md 用相对路径（如 compiler/ast.md）；rag-chunk/documents 下的样本按该目录为根（如 报告.docx、resume.pdf）。",
+  "_用法": "npm run eval -- eval/queries.json --topk 10",
+  "description": "MyRAG 检索评测集（47 条，覆盖语义型 / 术语型 / 小节定位型 / 非 md 来源）",
+  "queries": [
+    {
+      "id": "q001",
+      "question": "怎么判断一个变量的具体类型",
+      "expectSources": ["typings/typeGuard.md", "faqs/type-guards.md"],
+      "note": "[语义型] 已知最难的一条：dense 排 #6，所有融合模式都会丢失它"
+    },
+    {
+      "id": "q002",
+      "question": "TypeScript 里怎么把 union 转成 intersection",
+      "expectSources": ["tips/infer.md"],
+      "note": "[术语型] dense 失手过、fts 与融合能命中"
+    },
+    {
+      "id": "q003",
+      "question": "柯里化是怎么实现的",
+      "expectSources": ["tips/curry.md"],
+      "note": "[概念解释型] 小文档"
+    },
+    {
+      "id": "q004",
+      "question": "协变和逆变是什么意思",
+      "expectSources": ["tips/covarianceAndContravariance.md"],
+      "note": "[概念解释型]"
+    },
+    {
+      "id": "q005",
+      "question": "AST 里的 Node 节点有哪些成员",
+      "expectSources": ["compiler/ast.md"],
+      "note": "[小节定位型]"
+    },
+    {
+      "id": "q006",
+      "question": "泛型的作用是什么",
+      "expectSources": ["typings/generices.md", "faqs/generics.md"],
+      "note": "[概念解释型] 两个文件都讲泛型"
+    },
+    {
+      "id": "q007",
+      "question": "枚举类型应该怎么用",
+      "expectSources": ["typings/enums.md", "faqs/enums.md"],
+      "note": "[概念解释型] 语料里有两个 enums.md"
+    },
+    {
+      "id": "q008",
+      "question": "文件模块有什么特别的地方",
+      "expectSources": ["project/modules.md", "faqs/modules.md"],
+      "note": "[概念解释型] 语料里有两个 modules.md"
+    },
+    {
+      "id": "q009",
+      "question": "字面量类型是什么",
+      "expectSources": ["typings/literals.md"],
+      "note": "[短小节]"
+    },
+    {
+      "id": "q010",
+      "question": "实习报告里探测的目标体有哪些",
+      "expectSources": ["报告.docx"],
+      "note": "[非 md·docx 表格]"
+    },
+    {
+      "id": "q011",
+      "question": "这个人的项目经历是什么",
+      "expectSources": ["resume.pdf"],
+      "note": "[非 md·pdf] 这里的正文含 CJK 兼容字符，曾导致 FTS 完全查不到"
+    },
+    {
+      "id": "q012",
+      "question": "TypeScript 编译器是怎么把源码拆成一个个词的",
+      "expectSources": ["compiler/scanner.md"],
+      "note": "[语义型] 问句不含「扫描器」这个词"
+    },
+    {
+      "id": "q013",
+      "question": "绑定器在编译流程里负责什么",
+      "expectSources": ["compiler/binder.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q014",
+      "question": "类型检查器是怎么判断代码有没有问题的",
+      "expectSources": ["compiler/checker.md"],
+      "note": "[语义型]"
+    },
+    {
+      "id": "q015",
+      "question": "同一个 TypeScript 代码编译到不同目标会生成什么",
+      "expectSources": ["compiler/emitter.md"],
+      "note": "[语义型] 问句不含「发射器」"
+    },
+    {
+      "id": "q016",
+      "question": "程序对象是怎么管理一组源文件的",
+      "expectSources": ["compiler/program.md"],
+      "note": "[语义型]"
+    },
+    {
+      "id": "q017",
+      "question": "编译器内部有哪些关键的数据结构",
+      "expectSources": ["compiler/overview.md", "typings/overview.md"],
+      "note": "[语义型] 两个 overview 都可能命中"
+    },
+    {
+      "id": "q018",
+      "question": "TS2304 是什么错误",
+      "expectSources": ["error/common.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q019",
+      "question": "报错信息太长了怎么看懂",
+      "expectSources": ["error/interpreting.md"],
+      "note": "[语义型] 问句不含「解读」"
+    },
+    {
+      "id": "q020",
+      "question": "我导入的模块为什么编译之后被删掉了",
+      "expectSources": ["faqs/modules.md", "project/modules.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q021",
+      "question": "为什么空类的行为很奇怪",
+      "expectSources": ["faqs/class.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q022",
+      "question": "enum 和 const enum 有什么区别",
+      "expectSources": ["faqs/enums.md", "typings/enums.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q023",
+      "question": "为什么不能在解构出来的参数上写类型",
+      "expectSources": ["faqs/function.md"],
+      "note": "[语义型]"
+    },
+    {
+      "id": "q024",
+      "question": "为什么不能在泛型函数里写 new T",
+      "expectSources": ["faqs/generics.md", "typings/generices.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q025",
+      "question": "加上 --outDir 之后为什么把所有输出都删了",
+      "expectSources": ["faqs/commandline-behavior.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q026",
+      "question": "文件放在 exclude 里为什么还是被编译了",
+      "expectSources": ["faqs/tsconfig-behavior.md"],
+      "note": "[语义型]"
+    },
+    {
+      "id": "q027",
+      "question": "instanceof 为什么不能缩小类型范围",
+      "expectSources": ["faqs/type-guards.md", "typings/typeGuard.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q028",
+      "question": "什么是结构化类型",
+      "expectSources": ["faqs/type-system-behavior.md", "typings/typeCompatibility.md"],
+      "note": "[概念解释型]"
+    },
+    {
+      "id": "q029",
+      "question": "TypeScript 的类型信息在运行时还在吗",
+      "expectSources": ["faqs/type-system-behavior.md"],
+      "note": "[语义型] 考类型擦除，问句不含原文的「类型删除」"
+    },
+    {
+      "id": "q030",
+      "question": "可选链是哪个版本引入的",
+      "expectSources": ["new/typescript-3.7.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q031",
+      "question": "类里的私有字段怎么声明",
+      "expectSources": ["new/typescript-3.8.md"],
+      "note": "[语义型]"
+    },
+    {
+      "id": "q032",
+      "question": "怎么把某个变量的类型提取出来复用",
+      "expectSources": ["typings/movingTypes.md"],
+      "note": "[语义型] 问句不含「流动的类型」"
+    },
+    {
+      "id": "q033",
+      "question": "类型断言为什么被认为是有害的",
+      "expectSources": ["typings/typeAssertion.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q034",
+      "question": "怎么表示一个函数永远不会正常返回",
+      "expectSources": ["typings/neverType.md"],
+      "note": "[语义型] 问句不含 never"
+    },
+    {
+      "id": "q035",
+      "question": "lib.d.ts 是什么，可以改吗",
+      "expectSources": ["typings/lib.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q036",
+      "question": "索引签名怎么声明，有什么限制",
+      "expectSources": ["typings/indexSignatures.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q037",
+      "question": "readonly 和 const 有什么区别",
+      "expectSources": ["typings/readonly.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q038",
+      "question": "Freshness 是什么",
+      "expectSources": ["typings/freshness.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q039",
+      "question": "怎么给已有的类扩展功能",
+      "expectSources": ["typings/mixins.md"],
+      "note": "[语义型] 问句不含「混合」"
+    },
+    {
+      "id": "q040",
+      "question": "从 JavaScript 项目迁移过来要注意什么",
+      "expectSources": ["typings/migrating.md"],
+      "note": "[语义型]"
+    },
+    {
+      "id": "q041",
+      "question": "@types 是怎么生效的",
+      "expectSources": ["typings/types.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q042",
+      "question": "为什么不应该用 bind",
+      "expectSources": ["tips/bind.md"],
+      "note": "[语义型]"
+    },
+    {
+      "id": "q043",
+      "question": "export default 有什么坏处",
+      "expectSources": ["tips/avoidExportDefault.md"],
+      "note": "[术语型]"
+    },
+    {
+      "id": "q044",
+      "question": "怎么在编译期做功能开关",
+      "expectSources": ["tips/buildToggles.md"],
+      "note": "[语义型] 问句不含「构建切换」"
+    },
+    {
+      "id": "q045",
+      "question": "对象字面量初始化的属性检查太严了怎么绕开",
+      "expectSources": ["tips/lazyObjectLiteralInitialization.md"],
+      "note": "[语义型]"
+    },
+    {
+      "id": "q046",
+      "question": "怎么让两个结构不同的类型不互相赋值",
+      "expectSources": ["tips/nominalTyping.md"],
+      "note": "[语义型] 考名义化类型，问句不含这四个字"
+    },
+    {
+      "id": "q047",
+      "question": "退款多久到账，超过多少钱要走人工审核",
+      "expectSources": ["refund-policy.md"],
+      "note": "[非 md·政策文档]"
+    }
+  ]
+}

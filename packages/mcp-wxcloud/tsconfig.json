@@ -1,0 +1,9 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    // 作者原配置里就把这一项注释掉了，说明本包还没准备好吃这个严格选项；
+    // 显式关掉（而不是删除），需要单独修一遍类型后再打开。
+    "exactOptionalPropertyTypes": false,
+    "jsx": "react-jsx"
+  }
+}

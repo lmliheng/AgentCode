@@ -1,57 +1,50 @@
-# CmdUtils
-![img](https://img.shields.io/badge/Faster%20use-Linux-red)  ![img](https://img.shields.io/badge/Developed%20by-C-yellow)  ![img](https://img.shields.io/badge/Updata-more-orange)
+### AgentCode
 
-![Alt](https://repobeats.axiom.co/api/embed/a50babc45d7ac4f805c05399b5eb0c8e7c2263ab.svg "Repobeats analytics image")
+一个 Agent 应用的学习与实战仓库：`packages/` 里是可独立安装 / 发布 / 测试的包，
+`examples/` 里是学习示例与资料（不进 workspace，用 `tsx` / `node` 直接跑）。
 
-CmdUtils是一个用于查询和执行常用命令的命令行工具。它可以帮助用户快速查找和执行各种命令，提高工作效率🚡
+#### 目录
 
-目前拥有`🚡常用命令速查`，`🥇集成自动化安装检查脚本`，`🧮代码统计以及代码提交`等高级功能
-
-**注意仅适用于`linux centos 7.x`**
-
-## 安装
-
-执行脚本
-```bash
-curl -O https://heng1.oss-cn-beijing.aliyuncs.com/cil && chmod +x cil && ./cil s cil && cil
+```
+packages/
+  core/          @lmliheng/acode-core      共享类型、输出预算、会话持久化的零依赖地基
+  providers/     @lmliheng/acode-providers 模型适配层：deepseek / openai / anthropic / gemini
+  tools/         @lmliheng/acode-tools     文件 / Git / 命令 / 搜索工具与 ToolRegistry
+  runtime/       @lmliheng/acode-runtime   ReAct 循环、审批、预算
+  cli/           @lmliheng/acode           交互式 CLI（bin: acode），vue-tui 实验入口
+  rag-chunk/     @lmliheng/rag-chunk       RAG 资料读取 / 分块 / 向量化 / Milvus
+  myrag/         myrag                     分块实现的实验场地（spike）
+  mcp-host/      host-client-server        MCP host / client 示例服务
+  mcp-wxcloud/   wxcloudmcp                微信云托管上的 MCP 示例
+  memory-short/  02-short-term-memory      短期 / 长期记忆示例
+examples/        学习示例（llm / langchain / context / mcp / memory / prompt / react / rag）
+scripts/         发布脚本（publish-packages.sh）
 ```
 
-## 使用
-查看可用命令：
+包之间的依赖是无环的：`core ← providers / tools ← runtime ← cli`。
+
+#### 常用命令
+
 ```bash
-cil 
-```
-终端输出如下
-```bash
-用法:cil (<参数>) <命令名>
-例如:cil i nginx 安装中间件Nginx
-cil version/updata :检查当前版本以及版本更新
-cil * :支持nginx,psql(PostgreSQL),pro(进程检查命令),exe(可执行文件操作),base(基础linux检查),sl——————提示以及更新功能
-cil i * :支持nginx,psql,nvm,cloc,gcc,git——————安装功能
-cil s * :支持cil,env,banner,exam,cpu,free,system——————shell功能
-cil f * :支持exam(目录检查),info(目录下所有文件检查),nginx,psql——————文件类型检查功能
-cil l * :支持exam——————登录自动执行功能
-   ______              ____  ____  _ __    
-  / ____/___ ___  ____/ / / / / /_(_) /____
- / /   / __ `__ \/ __  / / / / __/ / / ___/
-/ /___/ / / / / / /_/ / /_/ / /_/ / (__  ) 
-\____/_/ /_/ /_/\__,_/\____/\__/_/_/____/  
-                                           
+pnpm install
+pnpm typecheck          # 所有包 tsc --noEmit
+pnpm test               # 所有包 vitest
+pnpm build              # 需要发布的包产出 dist/
+
+pnpm --filter @lmliheng/acode cli   # 以 tsx 直接跑 packages/cli 的源码（开发用）
+pnpm chat:llm                       # 跑 examples/llm 里的示例（其余脚本见 package.json）
 ```
 
-## 编译
-如果您要修改代码则可修改后编译运行👽
+需要模型 API Key 的示例与 CLI 从 `.env` 读 key：根目录（示例）、`packages/cli`
+与 `packages/rag-chunk` 各有一份 `.env.example`，复制成 `.env` 填上 `DEEPSEEK_API_KEY` 即可。
+
+#### 发布
+
+要给 npm 的包（`core` / `providers` / `tools` / `runtime` / `cli`）都配了
+`build` + `files: ["dist"]` + `publishConfig`：仓库内开发直接消费 `src`
+（`exports` 指 `src/index.ts`，`tsx` / `vitest` / `tsc` 都跑得通），
+`pnpm publish` 时 `publishConfig` 会把入口改写成 `dist`，因此装到别人机器上是正常包。
+
 ```bash
-make
+pnpm build && pnpm -r publish --access public   # 按依赖顺序：core → providers/tools → runtime → cli
 ```
-
-# 贡献
-🧑如果您发现任何错误或想要添加新功能，请随时提交`issue`或`pull request`
-
-<a href="https://github.com/lmliheng/CmdUtils/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=lmliheng/CmdUtils" />
-</a>
-
-Made with [contrib.rocks](https://contrib.rocks).
-# 许可证
-CmdUtils采用`MIT`许可证。

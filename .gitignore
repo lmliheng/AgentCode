@@ -1,4 +1,4 @@
-build.sh
-push.sh
-configure copy
-cil.zip
+node_modules
+.env
+dist
+packages/RAG/MyRAG

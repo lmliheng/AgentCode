@@ -1,0 +1,11 @@
+{
+  // 各包自己的 tsconfig.json 都 extends tsconfig.base.json；
+  // 这个根配置只用于「整仓库一次性类型检查」的场景，不参与构建。
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist",
+    "noEmit": true
+  },
+  "exclude": ["node_modules", "dist", "**/dist", "examples"]
+}

@@ -1,0 +1,62 @@
+{
+  "name": "agentcode",
+  "version": "1.0.3",
+  "description": "Agent应用学习仓库",
+  "main": "index.js",
+  "scripts": {
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "build": "pnpm -r build",
+    "chat:llm": "tsx --env-file=.env examples/llm/chat.ts chat",
+    "balance:llm": "tsx --env-file=.env examples/llm/chat.ts balance",
+    "jev:llm": "tsx --env-file=.env examples/llm/jev.ts jev",
+    "tool_calling:agent": "tsx --env-file=.env examples/mcp/ToolCalling/toolcalling.ts",
+    "query_better:prompt": "tsx --env-file=.env examples/prompt/提示词优化器/query.ts --test",
+    "rerank:rag": "tsx --env-file=.env examples/rag/reRank/reRank.ts --test",
+    "embedding:rag": "tsx --env-file=.env examples/rag/向量模型/embedding_test.ts",
+    "vectorRetriever:rag": "tsx --env-file=.env examples/rag/向量检索器/VectorRetriever.ts test",
+    "connect:rag": "tsx --env-file=.env examples/rag/milvus/index.ts test",
+    "collection:rag": "tsx --env-file=.env examples/rag/milvus/index.ts collection",
+    "check:rag": "tsx --env-file=.env examples/rag/milvus/index.ts check",
+    "insert:rag": "tsx --env-file=.env examples/rag/milvus/index.ts insert",
+    "search:rag": "tsx --env-file=.env examples/rag/milvus/index.ts search"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lmliheng/AgentCode.git"
+  },
+  "keywords": [
+    "Agent",
+    "mcp",
+    "rag",
+    "llm"
+  ],
+  "author": "lmliheng",
+  "license": "MIT",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/lmliheng/AgentCode/issues"
+  },
+  "homepage": "https://github.com/lmliheng/AgentCode#readme",
+  "dependencies": {
+    "@langchain/core": "^1.2.8",
+    "@langchain/deepseek": "^1.1.8",
+    "@lmliheng/filesystem-mcp": "^1.0.7",
+    "langchain": "^1.5.9",
+    "@lmliheng/rag-chunk": "workspace:*",
+    "@modelcontextprotocol/express": "^2.0.0",
+    "@modelcontextprotocol/node": "^2.0.0",
+    "@modelcontextprotocol/server": "^2.0.0",
+    "@zilliz/milvus2-sdk-node": "^3.0.4",
+    "express": "^5.2.1",
+    "zod": "^4.5.4",
+    "cors": "^2.8.6",
+    "multer": "^2.3.0",
+    "pdf-parse": "^2.4.5"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "tsx": "catalog:"
+  },
+  "packageManager": "pnpm@12.5.1"
+}

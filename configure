@@ -1,9 +1,0 @@
-#!/bin/sh
-
-# Copyright (C) liheng
-
-
-
-LC_ALL=C
-export LC_ALL
-

@@ -1,0 +1,20 @@
+{
+  "name": "host-client-server",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "deepseek_cilent.js",
+  "scripts": {
+    "discover": "node host.js --discover",
+    "demo": "node --env-file=.env host.js",
+    "verify": "node verify-client",
+    "inspector": "pnpm dlx @modelcontextprotocol/inspector node after-sales-mcp-server.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^4.4.3"
+  }
+}

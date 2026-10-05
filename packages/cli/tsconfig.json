@@ -1,0 +1,12 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "./dist",
+    "jsx": "preserve",
+    "jsxImportSource": "vue",
+    "paths": {
+      "@vue-tui/runtime": ["./node_modules/@vue-tui/runtime/dist"]
+    }
+  }
+}

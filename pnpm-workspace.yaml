@@ -1,0 +1,21 @@
+packages:
+  - "packages/**"
+  - "apps/*"
+
+# 全仓库统一的工具版本：各包 package.json 里写 "catalog:" 引用，
+# 升级只改这一处（照 penguin 的做法）。
+catalog:
+  "@types/node": ^26.6.2
+  "@vitejs/plugin-vue": ^6.0.9
+  typescript: ^7.0.2
+  tsx: ^4.23.13
+  vite: 8.2.1
+  vitest: ^5.0.1
+  vue: ^3.5.43
+
+allowBuilds:
+  protobufjs: true
+  esbuild: true
+  sharp: false
+  "@zvec/zvec": true
+  tesseract.js: true
